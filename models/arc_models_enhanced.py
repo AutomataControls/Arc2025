@@ -208,8 +208,8 @@ class EnhancedMinervaNet(nn.Module):
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
-        # Residual gate - learnable weight for residual connection
-        self.residual_gate = nn.Parameter(torch.ones(1) * 0.1)  # Start with weak residual
+        # Simple mixing parameter - start at 0.5
+        self.mix_param = nn.Parameter(torch.tensor(0.5))
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
@@ -254,9 +254,10 @@ class EnhancedMinervaNet(nn.Module):
             transformed = self._apply_transform(combined_features, transform_params)
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
             
-            # CRITICAL: Add residual connection with learnable gate
-            # Most ARC tasks modify the input, not generate from scratch
-            predicted_output = predicted_output + self.residual_gate * input_grid
+            # Mix prediction with input using learnable parameter
+            # Sigmoid to keep in [0, 1] range
+            mix = torch.sigmoid(self.mix_param)
+            predicted_output = mix * predicted_output + (1 - mix) * input_grid
             
             return {
                 'predicted_output': predicted_output,
@@ -270,8 +271,9 @@ class EnhancedMinervaNet(nn.Module):
             transformed = self._apply_transform(combined_features, best_transform)
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
             
-            # CRITICAL: Add residual connection with learnable gate
-            predicted_output = predicted_output + self.residual_gate * input_grid
+            # Mix prediction with input
+            mix = torch.sigmoid(self.mix_param)
+            predicted_output = mix * predicted_output + (1 - mix) * input_grid
             
             return {
                 'predicted_output': predicted_output,
@@ -371,8 +373,8 @@ class EnhancedAtlasNet(nn.Module):
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
-        # Residual gate
-        self.residual_gate = nn.Parameter(torch.ones(1) * 0.1)
+        # Mix parameter  
+        self.mix_param = nn.Parameter(torch.tensor(0.5))
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
@@ -408,7 +410,7 @@ class EnhancedAtlasNet(nn.Module):
         predicted_output = self.decoder(transformed_features)
         
         # Add residual connection with gate
-        predicted_output = predicted_output + self.residual_gate * input_grid
+        predicted_output = predicted_output + torch.sigmoid(self.mix_param) * input_grid
         
         return {
             'predicted_output': predicted_output,
@@ -600,8 +602,8 @@ class EnhancedChronosNet(nn.Module):
         nn.init.xavier_uniform_(self.decoder[-1].weight)
         nn.init.zeros_(self.decoder[-1].bias)
         
-        # Residual gate
-        self.residual_gate = nn.Parameter(torch.ones(1) * 0.1)
+        # Mix parameter  
+        self.mix_param = nn.Parameter(torch.tensor(0.5))
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         
@@ -652,7 +654,7 @@ class EnhancedChronosNet(nn.Module):
         predicted_output = self.decoder(combined)
         
         # Residual from last frame with gate
-        predicted_output = predicted_output + self.residual_gate * sequence[-1]
+        predicted_output = predicted_output + torch.sigmoid(self.mix_param) * sequence[-1]
         
         return {
             'predicted_output': predicted_output,
@@ -671,7 +673,7 @@ class EnhancedChronosNet(nn.Module):
         predicted_output = self.decoder(combined)
         
         # Residual with gate
-        predicted_output = predicted_output + self.residual_gate * input_grid
+        predicted_output = predicted_output + torch.sigmoid(self.mix_param) * input_grid
         
         return {
             'predicted_output': predicted_output,
