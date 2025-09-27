@@ -749,6 +749,11 @@ def train_enhanced_models_v2():
             val_total = 0
             val_consistency = 0.0
             
+            # Initialize pixel-wise tracking variables
+            val_pixel_acc_sum = 0
+            val_active_acc_sum = 0
+            val_batches_count = 0
+            
             # Enable dropout for uncertainty
             for module in model.modules():
                 if isinstance(module, nn.Dropout2d):
@@ -787,15 +792,10 @@ def train_enhanced_models_v2():
                     val_correct += (batch_metrics['exact_match'] / 100.0) * input_grids.size(0)
                     val_total += input_grids.size(0)
                     
-                    # Also track pixel-wise accuracy for monitoring
-                    if not hasattr(self, 'val_pixel_acc'):
-                        self.val_pixel_acc = 0
-                        self.val_active_acc = 0
-                        self.val_batches = 0
-                    
-                    self.val_pixel_acc += batch_metrics['pixel_wise']
-                    self.val_active_acc += batch_metrics['active_region']
-                    self.val_batches += 1
+                    # Track pixel-wise accuracy for monitoring
+                    val_pixel_acc_sum += batch_metrics['pixel_wise']
+                    val_active_acc_sum += batch_metrics['active_region']
+                    val_batches_count += 1
             
             # Calculate metrics
             avg_train_loss = train_loss / train_steps
@@ -804,14 +804,9 @@ def train_enhanced_models_v2():
             val_accuracy = val_correct / val_total * 100
             
             # Calculate additional metrics
-            if hasattr(self, 'val_pixel_acc'):
-                avg_pixel_acc = self.val_pixel_acc / self.val_batches
-                avg_active_acc = self.val_active_acc / self.val_batches
-                
-                # Reset for next epoch
-                self.val_pixel_acc = 0
-                self.val_active_acc = 0
-                self.val_batches = 0
+            if 'val_pixel_acc_sum' in locals() and val_batches_count > 0:
+                avg_pixel_acc = val_pixel_acc_sum / val_batches_count
+                avg_active_acc = val_active_acc_sum / val_batches_count
             else:
                 avg_pixel_acc = 0
                 avg_active_acc = 0
