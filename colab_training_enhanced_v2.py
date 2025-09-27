@@ -34,6 +34,7 @@ print(f'\nUsing device: {device}')
 if torch.cuda.is_available():
     print(f'GPU: {torch.cuda.get_device_name(0)}')
     print(f'Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB')
+    print(f'\n🚀 A100 80GB DETECTED! Using optimized settings for maximum performance!')
 
 # Clone repository
 print("\n📥 Cloning ARC Prize 2025 repository...")
@@ -67,10 +68,10 @@ except Exception as e:
     print(f"❌ Error loading models: {e}")
     raise
 
-# Hyperparameters
-BATCH_SIZE = 64  # Increased to better utilize A100 GPU
+# Hyperparameters - OPTIMIZED FOR A100 80GB!
+BATCH_SIZE = 256  # Massive batch size for A100 80GB
 GRADIENT_ACCUMULATION_STEPS = 1  # No need for accumulation with large batch
-LEARNING_RATE = 0.0002  # Slightly higher LR for larger batch
+LEARNING_RATE = 0.0008  # Higher LR for larger batch (linear scaling)
 NUM_EPOCHS = 100
 MAX_GRID_SIZE = 30
 NUM_COLORS = 10
@@ -204,7 +205,7 @@ class ARCDatasetEnhancedV2(Dataset):
             
             # NEW: Color permutation augmentation (inspired by winning solution)
             if len(np.unique(input_grid)) <= 5:  # Only for grids with few colors
-                for _ in range(2):  # Generate 2 color permutations
+                for _ in range(5):  # Generate 5 color permutations with 80GB GPU
                     # Create color mapping
                     unique_colors = list(np.unique(np.concatenate([input_grid.flatten(), output_grid.flatten()])))
                     color_perm = np.random.permutation(10)
@@ -359,8 +360,8 @@ def train_enhanced_models_v2():
     
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
     
     print(f"\n📊 Dataset Statistics:")
     print(f"  Total samples: {len(dataset)}")
@@ -475,9 +476,9 @@ def train_enhanced_models_v2():
                     input_grids = batch['input'].to(DEVICE)
                     output_grids = batch['output'].to(DEVICE)
                     
-                    # Multiple forward passes for uncertainty
+                    # Multiple forward passes for uncertainty - MORE with 80GB!
                     predictions = []
-                    for _ in range(3):  # 3 forward passes
+                    for _ in range(10):  # 10 forward passes with 80GB GPU
                         with autocast('cuda'):
                             if model_name == 'chronos':
                                 outputs = model.base_model([input_grids])
@@ -761,9 +762,9 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ## Technical Details
 
-- **GPU**: A100 40GB VRAM
-- **Batch Size**: 64
-- **Learning Rate**: 0.0002
+- **GPU**: A100 80GB VRAM
+- **Batch Size**: 256
+- **Learning Rate**: 0.0008
 - **Training Time**: ~{len(history) * 50 * 3 / 60:.1f} hours total
 - **Dataset**: Full ARC training set with enhanced augmentation
 """

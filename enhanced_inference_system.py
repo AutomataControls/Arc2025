@@ -48,7 +48,7 @@ class EnhancedInferenceEngine:
                 logger.warning(f"Checkpoint not found for {model_name}")
     
     def generate_multiple_predictions(self, input_grid: torch.Tensor, model: nn.Module, 
-                                    n_predictions: int = 5) -> List[Tuple[torch.Tensor, float]]:
+                                    n_predictions: int = 20) -> List[Tuple[torch.Tensor, float]]:  # 20 predictions with 80GB!
         """Generate multiple predictions with confidence scores"""
         predictions = []
         
@@ -92,8 +92,8 @@ class EnhancedInferenceEngine:
         colors = torch.unique(input_grid.argmax(dim=1))
         
         if len(colors) <= 5:  # Only permute if few colors
-            # Generate a few random permutations
-            for _ in range(3):
+            # Generate more permutations with 80GB GPU
+            for _ in range(10):  # 10 permutations with 80GB
                 perm = torch.randperm(10)
                 perm_grid = torch.zeros_like(input_grid)
                 
@@ -118,8 +118,8 @@ class EnhancedInferenceEngine:
             augmented_inputs = self.apply_color_permutations(input_tensor)
             
             for aug_input in augmented_inputs:
-                # Get multiple predictions per input
-                preds = self.generate_multiple_predictions(aug_input, model, n_predictions=3)
+                # Get multiple predictions per input - MORE with 80GB!
+                preds = self.generate_multiple_predictions(aug_input, model, n_predictions=10)
                 
                 for pred_logits, confidence in preds:
                     # Convert to grid
@@ -142,8 +142,8 @@ class EnhancedInferenceEngine:
         # Sort by total score
         all_predictions.sort(key=lambda x: x['total_score'], reverse=True)
         
-        # Try to find consensus among top predictions
-        top_k = min(5, len(all_predictions))
+        # Try to find consensus among top predictions - check more with 80GB
+        top_k = min(20, len(all_predictions))  # Check top 20 predictions
         top_preds = all_predictions[:top_k]
         
         # Check for exact matches in top predictions
