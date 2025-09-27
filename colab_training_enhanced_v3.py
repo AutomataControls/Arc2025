@@ -94,10 +94,10 @@ DEVICE = device
 RECONSTRUCTION_WEIGHT = 1.0
 PATTERN_WEIGHT = 0.0  # Removed - not helping
 CONSISTENCY_WEIGHT = 0.01  # Reduced even further
-EDGE_WEIGHT = 1.0  # DOUBLED: Edge precision critical for exact match
-COLOR_BALANCE_WEIGHT = 0.5  # INCREASED: Must get colors exactly right
-STRUCTURE_WEIGHT = 0.6  # INCREASED: Added explicit structure weight
-TRANSFORMATION_PENALTY = -1.0  # NEW: STRONG penalty for being too similar to input
+EDGE_WEIGHT = 0.5  # Reduced: Too much edge focus hurts active regions
+COLOR_BALANCE_WEIGHT = 0.3  # Balanced: Must get colors right but not dominate
+STRUCTURE_WEIGHT = 0.4  # Moderate: Important but not overwhelming
+TRANSFORMATION_PENALTY = -0.5  # Reduced: Still encourage change but not too harsh
 
 print("\n⚙️ V3 Configuration:")
 print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
@@ -149,7 +149,7 @@ class ImprovedReconstructionLoss(nn.Module):
         target_edges = self._detect_edges(target_indices)
         
         # Weight edge pixels more - but not too much
-        edge_weight = 1.0 + target_edges * 2.0  # 3x weight on edges
+        edge_weight = 1.0 + target_edges * 1.0  # 2x weight on edges (reduced from 3x)
         weighted_loss = focal_loss * edge_weight
         
         reconstruction_loss = weighted_loss.mean()
