@@ -1,21 +1,25 @@
-# ARC Prize 2025 - Hailo-Powered Pattern Recognition
+# ARC Prize 2025 - Neural Architecture with Hailo-8 NPU
 
-<div align="center">
+![AutomataNexus](https://img.shields.io/badge/AutomataNexus-AI-06b6d4?labelColor=64748b)
+![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%205-c51a4a)
+![ARC Prize](https://img.shields.io/badge/ARC%20Prize-2025%20Competition-FF6B6B)
+![Prize Pool](https://img.shields.io/badge/Prize%20Pool-$1M-4ECDC4)
+![AI Models](https://img.shields.io/badge/AI%20Models-5%20Custom%20Neural%20Networks-45B7D1)
+![NPU](https://img.shields.io/badge/Hailo--8%20NPU-26%20TOPS-2ECC71)
+![Pattern Detectors](https://img.shields.io/badge/Pattern%20Detectors-8%20Specialized-FFD93D)
+![Status](https://img.shields.io/badge/Status-Active%20Development-success)
 
-[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
-[![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)](https://numpy.org/)
-[![Kaggle](https://img.shields.io/badge/Kaggle-035a7d?style=for-the-badge&logo=kaggle&logoColor=white)](https://www.kaggle.com/)
-[![Jupyter Notebook](https://img.shields.io/badge/jupyter-%23FA0F00.svg?style=for-the-badge&logo=jupyter&logoColor=white)](https://jupyter.org/)
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Hailo](https://img.shields.io/badge/Hailo-8_NPU-00D4AA?style=for-the-badge)](https://hailo.ai/)
-[![Status](https://img.shields.io/badge/Status-In_Development-orange?style=for-the-badge)](https://github.com/AutomataControls/Arc2025)
-
-</div>
+![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0-EE4C2C?logo=pytorch&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-1.24-013243?logo=numpy&logoColor=white)
+![Kaggle](https://img.shields.io/badge/Kaggle-Competition-20BEFF?logo=kaggle&logoColor=white)
+![Google Colab](https://img.shields.io/badge/Google%20Colab-Training-F9AB00?logo=googlecolab&logoColor=white)
+![ONNX](https://img.shields.io/badge/ONNX-Export-005CED?logo=onnx&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 🏆 Overview
 
-This repository contains our solution for the **ARC Prize 2025** - a $1,000,000 competition to solve Abstract Reasoning Corpus (ARC-AGI) tasks. Our approach leverages the **Hailo-8 NPU** (26 TOPS) for offline pattern pre-computation, enabling fast and accurate solving during Kaggle evaluation.
+This repository contains our solution for the **ARC Prize 2025** - a $1,000,000 competition to solve Abstract Reasoning Corpus (ARC-AGI) tasks. Our approach combines **5 custom neural networks** with **8 specialized pattern detectors**, leveraging the **Hailo-8 NPU** (26 TOPS) for high-performance inference.
 
 ## 🎯 Competition Goal
 
@@ -32,24 +36,61 @@ Unlike traditional approaches limited by Kaggle's 12-hour runtime, we use:
 
 ```
 ARCPrize2025/
-├── arc_solver.py              # Main solver for Kaggle evaluation
-├── pattern_detectors.py       # 8 specialized pattern detection modules
-├── precompute_patterns.py     # Offline pattern analysis script
-├── kaggle_submission.py       # Kaggle notebook submission script
-├── explore_arc_data.py        # Data exploration and visualization
-├── test_framework.py          # Local testing and validation
-├── data/                      # ARC dataset files
-├── docs/                      # Documentation
-│   ├── architecture.md        # System architecture with diagrams
-│   ├── pattern_detectors.md   # Pattern detector documentation
-│   ├── testing_plan.md        # Testing strategy
+├── models/                    # Neural network models
+│   ├── arc_models.py         # 5 custom neural networks
+│   ├── train_arc_models_colab.ipynb  # Training notebook
+│   └── docs/                 # Model documentation & COAs
+├── arc_solver.py             # Main solver for Kaggle evaluation
+├── pattern_detectors.py      # 8 specialized pattern detection modules
+├── precompute_patterns.py    # Offline pattern analysis script
+├── kaggle_submission.py      # Kaggle notebook submission script
+├── colab_training.py         # Google Colab training script
+├── explore_arc_data.py       # Data exploration and visualization
+├── test_framework.py         # Local testing and validation
+├── data/                     # ARC dataset files
+│   ├── arc-agi_training_challenges.json
+│   ├── arc-agi_evaluation_challenges.json
 │   └── ...
-└── visualizations/            # Task visualizations
+├── docs/                     # Documentation
+│   ├── architecture.md       # System architecture with diagrams
+│   ├── pattern_detectors.md  # Pattern detector documentation
+│   ├── testing_plan.md       # Testing strategy
+│   └── ...
+└── visualizations/           # Task visualizations
 ```
+
+## 🤖 Neural Network Models
+
+Our solution features 5 custom PyTorch models, each specialized for different reasoning tasks:
+
+### 1. **MINERVA** - Strategic Pattern Analysis
+- Vision Transformer architecture with pattern memory bank
+- 8.7M parameters
+- Handles strategic reasoning and decision making
+
+### 2. **ATLAS** - Spatial Transformations  
+- Spatial Transformer Network (STN)
+- 3.5M parameters
+- Specializes in geometric transformations and structural analysis
+
+### 3. **IRIS** - Color Pattern Recognition
+- Attention-based color relationship analyzer
+- 4.2M parameters
+- Masters color mappings and harmony detection
+
+### 4. **CHRONOS** - Temporal Sequences
+- Bidirectional LSTM with evolution prediction
+- 6.1M parameters
+- Tracks pattern evolution and sequences
+
+### 5. **PROMETHEUS** - Creative Pattern Generation
+- Variational Autoencoder (VAE) architecture
+- 9.3M parameters
+- Generates novel pattern solutions
 
 ## 🧠 Pattern Detectors
 
-Our solution uses 8 specialized detectors inspired by the Apollo Nexus architecture:
+Supporting our neural networks are 8 specialized pattern detectors:
 
 1. **GeometricDetector** - Rotations, reflections, translations
 2. **ColorDetector** - Color mappings and transformations
