@@ -208,8 +208,8 @@ class EnhancedMinervaNet(nn.Module):
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
-        # Simple mixing parameter - start at 0.1 to favor predictions
-        self.mix_param = nn.Parameter(torch.tensor(0.1))
+        # Simple mixing parameter - start at 0.01 to STRONGLY favor predictions
+        self.mix_param = nn.Parameter(torch.tensor(0.01))
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
@@ -259,6 +259,11 @@ class EnhancedMinervaNet(nn.Module):
             # Mix prediction with input using learnable parameter
             # Sigmoid to keep in [0, 1] range - but favor the prediction!
             mix = torch.sigmoid(self.mix_param)
+            
+            # During training, use even less input mixing to force learning transformations
+            if self.training:
+                mix = mix * 0.1  # Reduce input contribution by 10x during training
+                
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
             return {
@@ -275,6 +280,13 @@ class EnhancedMinervaNet(nn.Module):
             
             # Mix prediction with input
             mix = torch.sigmoid(self.mix_param)
+            
+            # During inference, still use less input
+            if self.training:
+                mix = mix * 0.1
+            else:
+                mix = mix * 0.5
+                
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
             return {
@@ -378,8 +390,8 @@ class EnhancedAtlasNet(nn.Module):
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
-        # Mix parameter - start low to favor transformations
-        self.mix_param = nn.Parameter(torch.tensor(0.1))
+        # Mix parameter - start VERY low to favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.01))
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
@@ -415,8 +427,8 @@ class EnhancedAtlasNet(nn.Module):
         # Decode to output
         predicted_output = self.decoder(transformed_features)
         
-        # Don't add residual for ATLAS - it should transform
-        # predicted_output = predicted_output  # Pure transformation
+        # Pure transformation for ATLAS - NO residual at all
+        # predicted_output already contains the transformation
         
         return {
             'predicted_output': predicted_output,
@@ -612,8 +624,8 @@ class EnhancedChronosNet(nn.Module):
         nn.init.xavier_uniform_(self.decoder[-1].weight, gain=3.0)
         nn.init.constant_(self.decoder[-1].bias, 0.2)
         
-        # Mix parameter - start low to favor transformations
-        self.mix_param = nn.Parameter(torch.tensor(0.1))
+        # Mix parameter - start VERY low to favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.01))
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         

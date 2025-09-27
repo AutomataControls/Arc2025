@@ -97,7 +97,7 @@ CONSISTENCY_WEIGHT = 0.01  # Reduced even further
 EDGE_WEIGHT = 1.0  # DOUBLED: Edge precision critical for exact match
 COLOR_BALANCE_WEIGHT = 0.5  # INCREASED: Must get colors exactly right
 STRUCTURE_WEIGHT = 0.6  # INCREASED: Added explicit structure weight
-TRANSFORMATION_PENALTY = -0.2  # NEW: Penalty for being too similar to input
+TRANSFORMATION_PENALTY = -1.0  # NEW: STRONG penalty for being too similar to input
 
 print("\n⚙️ V3 Configuration:")
 print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
