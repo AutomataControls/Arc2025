@@ -105,25 +105,48 @@ class RelationalReasoning(nn.Module):
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         B, C, H, W = features.shape
         
+        # Use a more efficient approach - compute relations on downsampled features
+        # Downsample to reduce memory usage
+        if H > 8 or W > 8:
+            features_small = F.adaptive_avg_pool2d(features, (8, 8))
+            h_small, w_small = 8, 8
+        else:
+            features_small = features
+            h_small, w_small = H, W
+        
         # Flatten spatial dimensions
-        features_flat = features.view(B, C, -1).permute(0, 2, 1)  # B, H*W, C
+        features_flat = features_small.view(B, C, -1).permute(0, 2, 1)  # B, h*w, C
         N = features_flat.shape[1]
         
-        # Compute pairwise relations
-        features_i = features_flat.unsqueeze(2).expand(-1, -1, N, -1)
-        features_j = features_flat.unsqueeze(1).expand(-1, N, -1, -1)
+        # Instead of all pairs, use local neighborhood relations
+        # Create a local attention pattern (e.g., 3x3 neighborhood)
+        kernel_size = 3
+        padding = kernel_size // 2
         
-        # Concatenate pairs
-        pairs = torch.cat([features_i, features_j], dim=-1)
+        # Unfold to get local neighborhoods
+        features_unfold = F.unfold(features_small, kernel_size=kernel_size, padding=padding)  # B, C*k*k, h*w
+        features_unfold = features_unfold.view(B, C, kernel_size*kernel_size, -1).permute(0, 3, 2, 1)  # B, h*w, k*k, C
         
-        # Compute relations
-        relations = self.relation_net(pairs.view(B * N * N, -1))
-        relations = relations.view(B, N, N, C)
+        # Center features
+        center_features = features_flat.unsqueeze(2)  # B, h*w, 1, C
         
-        # Aggregate relations
-        aggregated = relations.mean(dim=2)  # B, N, C
+        # Compute local relations
+        local_relations = []
+        for i in range(kernel_size * kernel_size):
+            neighbor = features_unfold[:, :, i:i+1, :]  # B, h*w, 1, C
+            pair = torch.cat([center_features, neighbor], dim=-1)  # B, h*w, 1, 2*C
+            relation = self.relation_net(pair.view(-1, 2*C))  # (B*h*w, C)
+            local_relations.append(relation.view(B, N, C))
         
-        return aggregated.permute(0, 2, 1).view(B, C, H, W)
+        # Aggregate local relations
+        aggregated = torch.stack(local_relations, dim=2).mean(dim=2)  # B, N, C
+        aggregated = aggregated.permute(0, 2, 1).view(B, C, h_small, w_small)
+        
+        # Upsample back to original size if needed
+        if H != h_small or W != w_small:
+            aggregated = F.interpolate(aggregated, size=(H, W), mode='bilinear', align_corners=False)
+        
+        return aggregated
 
 
 class TransformationPredictor(nn.Module):

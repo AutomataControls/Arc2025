@@ -64,7 +64,8 @@ except Exception as e:
     raise
 
 # Hyperparameters
-BATCH_SIZE = 32
+BATCH_SIZE = 16  # Reduced from 32 to save memory
+GRADIENT_ACCUMULATION_STEPS = 2  # Accumulate gradients to simulate batch size of 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 100
 MAX_GRID_SIZE = 30
@@ -76,7 +77,7 @@ RECONSTRUCTION_WEIGHT = 1.0
 PATTERN_WEIGHT = 0.1
 
 print("\n⚙️ Configuration:")
-print(f"  Batch size: {BATCH_SIZE}")
+print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
 print(f"  Learning rate: {LEARNING_RATE}")
 print(f"  Epochs: {NUM_EPOCHS}")
 print(f"  Max grid size: {MAX_GRID_SIZE}")
@@ -368,9 +369,15 @@ def train_enhanced_models():
                 # Total loss
                 loss = RECONSTRUCTION_WEIGHT * recon_loss
                 
+                # Scale loss for gradient accumulation
+                loss = loss / GRADIENT_ACCUMULATION_STEPS
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
+                
+                # Update weights every GRADIENT_ACCUMULATION_STEPS
+                if (train_steps + 1) % GRADIENT_ACCUMULATION_STEPS == 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
                 
                 train_loss += loss.item()
                 train_steps += 1
