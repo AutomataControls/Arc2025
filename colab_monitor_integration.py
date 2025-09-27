@@ -60,9 +60,9 @@ class ColabTrainingMonitor:
         fig = make_subplots(
             rows=2, cols=2,
             subplot_titles=('Model Accuracies', 'Training Progress to 85%', 
-                           'Best Scores Ranking', 'Loss Curves'),
+                           'Best Scores Ranking', 'Progress Gauge'),
             specs=[[{"colspan": 2}, None],
-                   [{}, {}]]
+                   [{}, {"type": "indicator"}]]
         )
         
         # 1. Accuracy curves
