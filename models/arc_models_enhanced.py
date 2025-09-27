@@ -205,6 +205,9 @@ class EnhancedMinervaNet(nn.Module):
         # Memory bank for pattern storage
         self.pattern_memory = nn.Parameter(torch.randn(100, hidden_dim))
         
+        # Transform projection layer
+        self.transform_proj = nn.Linear(128, hidden_dim)
+        
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(hidden_dim * 2, 128, 3, padding=1),
@@ -262,11 +265,14 @@ class EnhancedMinervaNet(nn.Module):
         """Apply learned transformation to features"""
         B, C, H, W = features.shape
         
-        # Use transform params to modulate features
-        transform_matrix = transform_params.view(B, -1, 1, 1)
+        # Project transform params to match feature channels
+        transform_params = self.transform_proj(transform_params)
         
-        # Simple version - enhance this with actual transformations
-        transformed = features * transform_matrix[:, :C, :, :]
+        # Use transform params to modulate features
+        transform_matrix = transform_params.view(B, C, 1, 1)
+        
+        # Apply transformation with sigmoid to keep values in reasonable range
+        transformed = features * torch.sigmoid(transform_matrix)
         
         return transformed
     
@@ -282,7 +288,12 @@ class EnhancedMinervaNet(nn.Module):
         best_idx = similarity.argmax(dim=1)
         best_patterns = self.pattern_memory[best_idx]
         
-        return best_patterns
+        # Return as if they were transform parameters (will be projected to correct size)
+        # Create dummy transform params
+        transform_params = torch.zeros(B, 128).to(features.device)
+        transform_params[:, :min(128, best_patterns.shape[1])] = best_patterns[:, :min(128, best_patterns.shape[1])]
+        
+        return transform_params
 
 
 class EnhancedAtlasNet(nn.Module):
