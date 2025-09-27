@@ -250,6 +250,10 @@ class EnhancedMinervaNet(nn.Module):
             transformed = self._apply_transform(combined_features, transform_params)
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
             
+            # CRITICAL: Add residual connection to input
+            # Most ARC tasks modify the input, not generate from scratch
+            predicted_output = predicted_output + input_grid
+            
             return {
                 'predicted_output': predicted_output,
                 'transform_params': transform_params,
@@ -261,6 +265,9 @@ class EnhancedMinervaNet(nn.Module):
             best_transform = self._find_best_pattern(combined_features)
             transformed = self._apply_transform(combined_features, best_transform)
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
+            
+            # CRITICAL: Add residual connection to input
+            predicted_output = predicted_output + input_grid
             
             return {
                 'predicted_output': predicted_output,
@@ -393,6 +400,9 @@ class EnhancedAtlasNet(nn.Module):
         # Decode to output
         predicted_output = self.decoder(transformed_features)
         
+        # Add residual connection
+        predicted_output = predicted_output + input_grid
+        
         return {
             'predicted_output': predicted_output,
             'theta': theta,
@@ -501,6 +511,9 @@ class EnhancedIrisNet(nn.Module):
         
         # Final decode
         predicted_output = self.decoder(combined)
+        
+        # Residual connection - but use mapped output as base
+        predicted_output = predicted_output + mapped_output
         
         return {
             'predicted_output': predicted_output,
@@ -628,6 +641,9 @@ class EnhancedChronosNet(nn.Module):
         combined = torch.cat([last_frame_features, moved_features], dim=1)
         predicted_output = self.decoder(combined)
         
+        # Residual from last frame
+        predicted_output = predicted_output + sequence[-1]
+        
         return {
             'predicted_output': predicted_output,
             'movement_params': movement_params,
@@ -643,6 +659,9 @@ class EnhancedChronosNet(nn.Module):
         # Simple forward without temporal processing
         combined = torch.cat([features, obj_features], dim=1)
         predicted_output = self.decoder(combined)
+        
+        # Residual
+        predicted_output = predicted_output + input_grid
         
         return {
             'predicted_output': predicted_output,
@@ -776,6 +795,8 @@ class EnhancedPrometheusNet(nn.Module):
         
         # Apply rules to refine output
         refined_output = self._apply_rules(predicted_output, rules, input_grid)
+        
+        # No additional residual here - already handled in _apply_rules
         
         outputs = {
             'predicted_output': refined_output,
