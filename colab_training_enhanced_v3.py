@@ -438,8 +438,8 @@ def train_enhanced_models_v3():
     
     monitor = setup_colab_monitor()
     
-    # Start with easy samples (curriculum stage 0)
-    current_stage = 0
+    # Start with ALL samples - curriculum might be filtering out important examples
+    current_stage = 2  # Start with full dataset
     dataset = CurriculumARCDataset(DATA_DIR, split='train', curriculum_stage=current_stage)
     
     train_size = int(0.9 * len(dataset))
@@ -634,6 +634,15 @@ def train_enhanced_models_v3():
                     val_correct += matches.sum().item()
                     val_total += input_grids.size(0)
                     
+                    # DIAGNOSTIC: How close are we to exact matches?
+                    if epoch % 10 == 0 and val_batches_count == 0:
+                        per_sample_accuracy = (pred_colors == target_colors).float().mean(dim=[1,2])
+                        best_accuracy = per_sample_accuracy.max().item()
+                        avg_accuracy = per_sample_accuracy.mean().item()
+                        print(f"  Best sample accuracy: {best_accuracy*100:.1f}%")
+                        print(f"  Average sample accuracy: {avg_accuracy*100:.1f}%")
+                        print(f"  Samples >90% accurate: {(per_sample_accuracy > 0.9).sum().item()}/{len(per_sample_accuracy)}")
+                    
                     # Pixel accuracy
                     pixel_correct = (pred_colors == target_colors).float()
                     val_pixel_acc_sum += pixel_correct.mean().item() * 100
@@ -646,6 +655,11 @@ def train_enhanced_models_v3():
                         print(f"  Predicted colors: {unique_pred.tolist()}")
                         print(f"  Target colors: {unique_target.tolist()}")
                         print(f"  Most common predicted: {pred_colors.flatten().mode().values.item()}")
+                        
+                        # Check if model is just copying input
+                        input_colors = input_grids.argmax(dim=1)
+                        copying_accuracy = (pred_colors == input_colors).float().mean().item()
+                        print(f"  Copying input accuracy: {copying_accuracy*100:.1f}%")
                     
                     # Active region accuracy
                     active_mask = (target_colors != 0) | (pred_colors != 0)
