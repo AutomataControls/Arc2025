@@ -48,7 +48,7 @@ def setup_kaggle():
     os.chmod(kaggle_json, 0o600)
     return True
 
-def download_competition_data(competition_name: str = "arc-prize-2024"):
+def download_competition_data(competition_name: str = "arc-prize-2025"):
     """Download official ARC Prize competition data"""
     if not setup_kaggle():
         return None
@@ -126,7 +126,7 @@ def create_submission(predictions: Dict[str, List[List[int]]],
     return output_path
 
 def submit_to_kaggle(submission_path: str, 
-                     competition_name: str = "arc-prize-2024",
+                     competition_name: str = "arc-prize-2025",
                      message: str = "V4 MEGA-SCALE submission"):
     """Submit predictions to Kaggle"""
     if not setup_kaggle():
@@ -157,7 +157,7 @@ def submit_to_kaggle(submission_path: str,
     except Exception as e:
         print(f"❌ Error submitting: {e}")
 
-def check_leaderboard(competition_name: str = "arc-prize-2024", top_n: int = 10):
+def check_leaderboard(competition_name: str = "arc-prize-2025", top_n: int = 10):
     """Check current leaderboard position"""
     if not setup_kaggle():
         return
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     print("="*60)
     
     # Download competition data
-    comp_dir = download_competition_data("arc-prize-2024")
+    comp_dir = download_competition_data("arc-prize-2025")
     
     if comp_dir:
         # Load test data

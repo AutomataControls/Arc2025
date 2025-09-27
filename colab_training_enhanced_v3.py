@@ -16,6 +16,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from tqdm import tqdm
 import os
 import shutil
@@ -97,7 +98,7 @@ CONSISTENCY_WEIGHT = 0.01  # Reduced even further
 EDGE_WEIGHT = 0.5  # Reduced: Too much edge focus hurts active regions
 COLOR_BALANCE_WEIGHT = 0.3  # Balanced: Must get colors right but not dominate
 STRUCTURE_WEIGHT = 0.4  # Moderate: Important but not overwhelming
-TRANSFORMATION_PENALTY = -0.3  # Moderate: Balanced encouragement to transform
+TRANSFORMATION_PENALTY = 1.5  # INCREASED: Much stronger penalty for copying input
 
 print("\n⚙️ V3 Configuration:")
 print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
@@ -449,8 +450,8 @@ def train_enhanced_models_v3():
     
     monitor = setup_colab_monitor()
     
-    # Start with ALL samples - curriculum might be filtering out important examples
-    current_stage = 2  # Start with full dataset
+    # Start with curriculum stage 0 (easy samples)
+    current_stage = 0
     dataset = CurriculumARCDataset(DATA_DIR, split='train', curriculum_stage=current_stage)
     
     train_size = int(0.9 * len(dataset))
@@ -498,8 +499,8 @@ def train_enhanced_models_v3():
             optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE * 2,  # Reduced multiplier
                                 momentum=0.9, weight_decay=0.01, nesterov=True)
         
-        # Simple constant learning rate - OneCycle might be preventing learning
-        scheduler = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0)
+        # Use ReduceLROnPlateau for adaptive learning rate
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.2, patience=5)
         
         scaler = GradScaler('cuda')
         
@@ -516,13 +517,18 @@ def train_enhanced_models_v3():
         best_val_acc = 0
         patience = 30
         patience_counter = 0
-        stage_switch_epoch = 50  # Switch curriculum stage
+        # Set a schedule to switch stages
+        stage_switch_epoch_1 = 30  # Switch to medium at epoch 30
+        stage_switch_epoch_2 = 80  # Switch to hard at epoch 80
         
         # Training loop
         for epoch in range(NUM_EPOCHS):
             # Curriculum learning: increase difficulty
-            if epoch == stage_switch_epoch and current_stage < 2:
-                current_stage += 1
+            if epoch == stage_switch_epoch_1 and current_stage == 0:
+                current_stage = 1
+                print(f"\n🎯 Switching to curriculum stage {current_stage}")
+            elif epoch == stage_switch_epoch_2 and current_stage == 1:
+                current_stage = 2
                 print(f"\n🎯 Switching to curriculum stage {current_stage}")
                 
                 # Reload dataset with new difficulty
@@ -594,8 +600,8 @@ def train_enhanced_models_v3():
                     'struct': f'{losses["structure"].item():.4f}'
                 })
             
-            # Step scheduler once per epoch
-            scheduler.step()
+            # Step scheduler with validation accuracy for ReduceLROnPlateau
+            # scheduler.step()  # Removed - will be done after validation
             
             # Validation phase
             model.eval()
@@ -677,6 +683,24 @@ def train_enhanced_models_v3():
                     
                     val_batches_count += 1
             
+            # Visualize predictions every 10 epochs
+            if epoch % 10 == 0:
+                # Get a batch for visualization
+                vis_batch = next(iter(val_loader))
+                vis_input = vis_batch['input'].to(DEVICE)
+                vis_output = vis_batch['output'].to(DEVICE)
+                
+                with torch.no_grad():
+                    with autocast('cuda'):
+                        if model_name == 'chronos':
+                            vis_outputs = model.base_model([vis_input])
+                        else:
+                            vis_outputs = model(vis_input)
+                        vis_pred = vis_outputs['predicted_output']
+                
+                visualize_predictions(vis_input, vis_output, vis_pred, epoch+1, model_name, num_samples=3)
+                print(f"  📸 Saved visualization for epoch {epoch+1}")
+            
             # Calculate metrics
             avg_train_loss = train_loss / train_steps
             avg_val_loss = val_loss / len(val_loader)
@@ -696,6 +720,9 @@ def train_enhanced_models_v3():
                   f"Val Loss: {avg_val_loss:.4f}, Exact: {val_accuracy:.2f}%, "
                   f"Pixel: {avg_pixel_acc:.2f}%, Active: {avg_active_acc:.2f}%, "
                   f"Structure: {avg_structure:.4f}")
+            
+            # Step ReduceLROnPlateau with validation accuracy
+            scheduler.step(val_accuracy)
             
             # Update monitor
             monitor.update(
@@ -744,6 +771,50 @@ def train_enhanced_models_v3():
     create_v3_report(training_history)
     monitor.complete()
     print("\n🎉 V3 Training complete!")
+
+
+def visualize_predictions(input_grids, output_grids, predicted_grids, epoch, model_name, num_samples=5):
+    """Visualize predictions vs ground truth"""
+    # Create color map for ARC (0-9 colors)
+    colors = ['#000000', '#0074D9', '#FF4136', '#2ECC40', '#FFDC00',
+              '#AAAAAA', '#F012BE', '#FF851B', '#7FDBFF', '#870C25']
+    cmap = plt.matplotlib.colors.ListedColormap(colors)
+    
+    fig, axes = plt.subplots(num_samples, 3, figsize=(12, 4*num_samples))
+    if num_samples == 1:
+        axes = axes.reshape(1, -1)
+    
+    for i in range(min(num_samples, input_grids.shape[0])):
+        # Convert from one-hot to color indices
+        input_colors = input_grids[i].argmax(dim=0).cpu().numpy()
+        target_colors = output_grids[i].argmax(dim=0).cpu().numpy()
+        pred_colors = predicted_grids[i].argmax(dim=0).cpu().numpy()
+        
+        # Plot input
+        axes[i, 0].imshow(input_colors, cmap=cmap, vmin=0, vmax=9)
+        axes[i, 0].set_title('Input')
+        axes[i, 0].axis('off')
+        
+        # Plot target
+        axes[i, 1].imshow(target_colors, cmap=cmap, vmin=0, vmax=9)
+        axes[i, 1].set_title('Target')
+        axes[i, 1].axis('off')
+        
+        # Plot prediction
+        axes[i, 2].imshow(pred_colors, cmap=cmap, vmin=0, vmax=9)
+        # Check if exact match
+        exact_match = np.array_equal(pred_colors, target_colors)
+        title_color = 'green' if exact_match else 'red'
+        axes[i, 2].set_title('Prediction', color=title_color)
+        axes[i, 2].axis('off')
+    
+    plt.suptitle(f'{model_name} - Epoch {epoch}', fontsize=16)
+    plt.tight_layout()
+    
+    # Save figure
+    os.makedirs('/content/visualizations', exist_ok=True)
+    plt.savefig(f'/content/visualizations/{model_name}_epoch_{epoch}.png', dpi=150, bbox_inches='tight')
+    plt.close()
 
 
 def create_v3_report(history: Dict):

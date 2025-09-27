@@ -553,8 +553,8 @@
                     
                     <div class="strategy-item">
                         <div class="strategy-number">02</div>
-                        <div class="strategy-title">Weighted Voting</div>
-                        <div class="strategy-desc">Model predictions weighted by confidence and historical accuracy</div>
+                        <div class="strategy-title">Intelligent Weighted Voting</div>
+                        <div class="strategy-desc">Task-aware weighting based on pattern type and model expertise</div>
                     </div>
                     
                     <div class="strategy-item">
@@ -564,34 +564,76 @@
                     </div>
                 </div>
             </div>
+            
+            <h3 style="margin-top: 40px;">Weighted Voting Mechanism - The Smart Part</h3>
+            <p>The ensemble's final predictions use an intelligent weighted voting system that adapts to each task's characteristics:</p>
+            
+            <div class="voting-process" style="background: #f5f5f5; padding: 30px; border-radius: 15px; margin: 20px 0;">
+                <h4 style="margin-bottom: 20px;">Step-by-Step Voting Process:</h4>
+                
+                <ol style="line-height: 2;">
+                    <li><strong>Generate N Solutions:</strong> Run input through all 5 trained models to get 1-5 unique output grids</li>
+                    <li><strong>Count Base Votes:</strong> For each unique grid, count how many models proposed it</li>
+                    <li><strong>Apply Task-Aware Weights:</strong> Analyze the input-output pattern and adjust votes:
+                        <ul style="margin: 10px 0 10px 20px;">
+                            <li>Geometric transformation detected → ATLAS gets 1.5x weight, IRIS gets 0.8x</li>
+                            <li>Pure color mapping → IRIS gets 1.5x weight, ATLAS gets 0.8x</li>
+                            <li>Sequential/movement pattern → CHRONOS gets 1.3x weight</li>
+                            <li>Complex multi-object → MINERVA gets 1.4x weight</li>
+                            <li>Novel/creative pattern → PROMETHEUS gets 1.2x weight</li>
+                        </ul>
+                    </li>
+                    <li><strong>Calculate Final Scores:</strong> Sum weighted votes for each unique solution</li>
+                    <li><strong>Select Winners:</strong> 
+                        <ul style="margin: 10px 0 10px 20px;">
+                            <li>Submission #1: Grid with highest weighted score</li>
+                            <li>Submission #2: Grid with second-highest score</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <div style="background: #e8f9f5; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                    <strong>Example:</strong> For a rotation task, if ATLAS, MINERVA, and CHRONOS all predict Grid A, while IRIS and PROMETHEUS predict Grid B:
+                    <br>• Grid A: (1.5 × 1) + (1.0 × 1) + (1.0 × 1) = 3.5 weighted votes
+                    <br>• Grid B: (0.8 × 1) + (1.0 × 1) = 1.8 weighted votes
+                    <br>→ Grid A wins with 3.5 vs 1.8
+                </div>
+            </div>
         </section>
         
         <section id="implementation" class="section">
             <h2>Technical Implementation</h2>
             
-            <h3>Key Features</h3>
+            <h3>Key Features & Innovations</h3>
             <ul class="feature-list">
                 <li>Mixed precision training with FP16 for A100 GPU optimization</li>
-                <li>Curriculum learning with progressive difficulty stages</li>
-                <li>Advanced loss functions including focal loss and edge-aware weighting</li>
-                <li>Learnable residual connections for input preservation</li>
-                <li>Batch normalization and proper weight initialization</li>
-                <li>OneCycle learning rate scheduling for optimal convergence</li>
+                <li>Curriculum learning with 3 progressive difficulty stages (easy → medium → hard)</li>
+                <li><strong>Transformation Penalty:</strong> Novel loss component that actively penalizes models for copying input, forcing true transformations</li>
+                <li><strong>Exact Match Bonus:</strong> Large sparse reward (5x) for pixel-perfect solutions, providing powerful reinforcement signal</li>
+                <li>Identity-aware loss: Automatically detects when copying IS correct (identity tasks)</li>
+                <li>Advanced focal loss for hard-to-classify pixels (gamma=1.5)</li>
+                <li>Edge-aware weighting (2x on boundaries) for precise object delineation</li>
+                <li>Learnable residual connections with mixing parameters</li>
+                <li>CosineAnnealing scheduler for smooth convergence over 300 epochs</li>
             </ul>
             
-            <h3>Training Configuration</h3>
+            <h3>V4 Mega-Scale Training Configuration</h3>
             <div class="code-block">
-# Optimized hyperparameters for A100 80GB
-BATCH_SIZE = 128
-LEARNING_RATE = 0.001
-NUM_EPOCHS = 200
-GRADIENT_ACCUMULATION = 2
+# V4 MEGA-SCALE hyperparameters for A100 80GB
+BATCH_SIZE = 512
+LEARNING_RATE = 0.01
+NUM_EPOCHS = 300
+GRADIENT_ACCUMULATION = 4  # Effective batch: 2048!
+OPTIMIZER = SGD with Nesterov momentum
+SCHEDULER = CosineAnnealingLR
 
-# Enhanced loss weights
+# Critical loss innovations
 RECONSTRUCTION_WEIGHT = 1.0
-EDGE_WEIGHT = 0.5
-COLOR_BALANCE_WEIGHT = 0.3
-STRUCTURE_WEIGHT = 0.4
+TRANSFORMATION_PENALTY = 0.5  # Penalizes copying input
+EXACT_MATCH_BONUS = 5.0       # Rewards perfect solutions
+EDGE_WEIGHT = 0.3
+COLOR_BALANCE_WEIGHT = 0.2
+STRUCTURE_WEIGHT = 0.3
             </div>
             
             <h3>Model Integration</h3>

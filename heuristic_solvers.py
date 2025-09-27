@@ -1,0 +1,410 @@
+#!/usr/bin/env python3
+"""
+Post-Processing Heuristic Solvers for OLYMPUS Ensemble
+These "finishers" fix common prediction errors to boost exact match accuracy
+"""
+
+import numpy as np
+from typing import List, Tuple, Optional, Dict
+from scipy import ndimage
+
+
+class HeuristicSolver:
+    """Base class for heuristic solvers"""
+    
+    def __init__(self, name: str):
+        self.name = name
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray, 
+                  train_examples: List[Dict]) -> bool:
+        """Check if this heuristic should be applied"""
+        raise NotImplementedError
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Apply the heuristic to fix the prediction"""
+        raise NotImplementedError
+
+
+class SymmetrySolver(HeuristicSolver):
+    """Fix almost-symmetric grids to be perfectly symmetric"""
+    
+    def __init__(self, threshold: float = 0.85):
+        super().__init__("SymmetrySolver")
+        self.threshold = threshold
+    
+    def _check_symmetry(self, grid: np.ndarray, axis: str) -> float:
+        """Check how symmetric a grid is along an axis"""
+        if axis == 'horizontal':
+            flipped = np.flip(grid, axis=0)
+        elif axis == 'vertical':
+            flipped = np.flip(grid, axis=1)
+        elif axis == 'diagonal':
+            flipped = grid.T
+        else:
+            raise ValueError(f"Unknown axis: {axis}")
+        
+        # Handle size mismatch for diagonal
+        if flipped.shape != grid.shape:
+            return 0.0
+        
+        matches = (grid == flipped).sum()
+        total = grid.size
+        return matches / total
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs should be symmetric"""
+        # Check if training outputs are all symmetric
+        symmetric_count = 0
+        
+        for example in train_examples:
+            output = np.array(example['output'])
+            
+            # Check all symmetry types
+            h_sym = self._check_symmetry(output, 'horizontal')
+            v_sym = self._check_symmetry(output, 'vertical')
+            d_sym = self._check_symmetry(output, 'diagonal') if output.shape[0] == output.shape[1] else 0
+            
+            if max(h_sym, v_sym, d_sym) > 0.95:
+                symmetric_count += 1
+        
+        # If most training outputs are symmetric
+        if symmetric_count / len(train_examples) > 0.7:
+            # Check if prediction is almost symmetric
+            h_sym = self._check_symmetry(pred_grid, 'horizontal')
+            v_sym = self._check_symmetry(pred_grid, 'vertical')
+            d_sym = self._check_symmetry(pred_grid, 'diagonal') if pred_grid.shape[0] == pred_grid.shape[1] else 0
+            
+            return max(h_sym, v_sym, d_sym) > self.threshold
+        
+        return False
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Make the grid perfectly symmetric"""
+        h_sym = self._check_symmetry(pred_grid, 'horizontal')
+        v_sym = self._check_symmetry(pred_grid, 'vertical')
+        d_sym = self._check_symmetry(pred_grid, 'diagonal') if pred_grid.shape[0] == pred_grid.shape[1] else 0
+        
+        # Apply the strongest symmetry
+        if h_sym >= max(v_sym, d_sym):
+            # Horizontal symmetry
+            mid = pred_grid.shape[0] // 2
+            if pred_grid.shape[0] % 2 == 0:
+                top_half = pred_grid[:mid, :]
+                pred_grid[mid:, :] = np.flip(top_half, axis=0)
+            else:
+                top_half = pred_grid[:mid, :]
+                pred_grid[mid+1:, :] = np.flip(top_half, axis=0)
+        
+        elif v_sym >= d_sym:
+            # Vertical symmetry
+            mid = pred_grid.shape[1] // 2
+            if pred_grid.shape[1] % 2 == 0:
+                left_half = pred_grid[:, :mid]
+                pred_grid[:, mid:] = np.flip(left_half, axis=1)
+            else:
+                left_half = pred_grid[:, :mid]
+                pred_grid[:, mid+1:] = np.flip(left_half, axis=1)
+        
+        else:
+            # Diagonal symmetry
+            for i in range(pred_grid.shape[0]):
+                for j in range(i+1, pred_grid.shape[1]):
+                    pred_grid[j, i] = pred_grid[i, j]
+        
+        return pred_grid
+
+
+class GridSizeSolver(HeuristicSolver):
+    """Enforce consistent output grid size rules"""
+    
+    def __init__(self):
+        super().__init__("GridSizeSolver")
+    
+    def _infer_size_rule(self, train_examples: List[Dict]) -> Optional[Dict]:
+        """Infer the output size rule from training examples"""
+        rules = []
+        
+        for example in train_examples:
+            input_shape = np.array(example['input']).shape
+            output_shape = np.array(example['output']).shape
+            
+            # Check various rules
+            if output_shape == input_shape:
+                rules.append({'type': 'same', 'shape': output_shape})
+            elif output_shape[0] == output_shape[1]:
+                # Square output
+                rules.append({'type': 'square', 'size': output_shape[0]})
+            elif output_shape[0] == input_shape[0] * 2 and output_shape[1] == input_shape[1] * 2:
+                rules.append({'type': 'double', 'factor': 2})
+            elif output_shape[0] == input_shape[0] // 2 and output_shape[1] == input_shape[1] // 2:
+                rules.append({'type': 'half', 'factor': 0.5})
+        
+        # Check if all examples follow same rule
+        if len(rules) == len(train_examples):
+            first_rule = rules[0]
+            if all(r['type'] == first_rule['type'] for r in rules):
+                return first_rule
+        
+        return None
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if there's a consistent size rule being violated"""
+        rule = self._infer_size_rule(train_examples)
+        if rule is None:
+            return False
+        
+        # Check if prediction violates the rule
+        if rule['type'] == 'same':
+            return pred_grid.shape != input_grid.shape
+        elif rule['type'] == 'square':
+            return pred_grid.shape[0] != pred_grid.shape[1]
+        
+        return False
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Resize grid according to inferred rule"""
+        rule = self._infer_size_rule(train_examples)
+        
+        if rule['type'] == 'same':
+            # Resize to match input
+            target_shape = input_grid.shape
+        elif rule['type'] == 'square':
+            # Make it square (use first training example size)
+            size = np.array(train_examples[0]['output']).shape[0]
+            target_shape = (size, size)
+        else:
+            return pred_grid
+        
+        # Resize if needed
+        if pred_grid.shape != target_shape:
+            # Use nearest neighbor to preserve colors
+            h_scale = target_shape[0] / pred_grid.shape[0]
+            w_scale = target_shape[1] / pred_grid.shape[1]
+            
+            resized = ndimage.zoom(pred_grid, (h_scale, w_scale), order=0)
+            return resized.astype(np.int32)
+        
+        return pred_grid
+
+
+class ColorPaletteSolver(HeuristicSolver):
+    """Ensure output only uses colors that appear in input"""
+    
+    def __init__(self):
+        super().__init__("ColorPaletteSolver")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if output has invalid colors"""
+        # First check if this rule applies to training examples
+        rule_applies = True
+        
+        for example in train_examples:
+            input_colors = set(np.array(example['input']).flatten())
+            output_colors = set(np.array(example['output']).flatten())
+            
+            if not output_colors.issubset(input_colors):
+                rule_applies = False
+                break
+        
+        if not rule_applies:
+            return False
+        
+        # Check if prediction violates this
+        input_colors = set(input_grid.flatten())
+        pred_colors = set(pred_grid.flatten())
+        
+        return not pred_colors.issubset(input_colors)
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Replace invalid colors with nearest valid color"""
+        input_colors = sorted(set(input_grid.flatten()))
+        pred_colors = set(pred_grid.flatten())
+        
+        fixed_grid = pred_grid.copy()
+        
+        for color in pred_colors:
+            if color not in input_colors:
+                # Find nearest valid color
+                nearest = min(input_colors, key=lambda c: abs(c - color))
+                fixed_grid[fixed_grid == color] = nearest
+        
+        return fixed_grid
+
+
+class ObjectIntegritySolver(HeuristicSolver):
+    """Fix single-pixel holes and remove isolated noise"""
+    
+    def __init__(self, min_object_size: int = 3):
+        super().__init__("ObjectIntegritySolver")
+        self.min_object_size = min_object_size
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Always try to clean up objects"""
+        return True
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Fill holes and remove small noise"""
+        fixed_grid = pred_grid.copy()
+        
+        # Process each non-background color
+        unique_colors = sorted(set(fixed_grid.flatten()))
+        if 0 in unique_colors:
+            unique_colors.remove(0)  # Skip background
+        
+        for color in unique_colors:
+            # Create binary mask for this color
+            mask = (fixed_grid == color).astype(np.uint8)
+            
+            # Fill holes
+            filled = ndimage.binary_fill_holes(mask)
+            
+            # Remove small objects
+            labeled, num_features = ndimage.label(filled)
+            
+            for i in range(1, num_features + 1):
+                component = (labeled == i)
+                if component.sum() < self.min_object_size:
+                    filled[component] = 0
+            
+            # Apply back to grid
+            fixed_grid[filled.astype(bool)] = color
+            fixed_grid[(mask.astype(bool)) & (~filled.astype(bool))] = 0
+        
+        return fixed_grid
+
+
+class PatternCompletionSolver(HeuristicSolver):
+    """Complete partial patterns based on training examples"""
+    
+    def __init__(self):
+        super().__init__("PatternCompletionSolver")
+    
+    def _find_pattern_period(self, grid: np.ndarray, axis: int) -> Optional[int]:
+        """Find if there's a repeating pattern along an axis"""
+        size = grid.shape[axis]
+        
+        for period in range(2, size // 2 + 1):
+            if size % period == 0:
+                # Check if pattern repeats
+                is_periodic = True
+                
+                for i in range(period, size):
+                    if axis == 0:
+                        if not np.array_equal(grid[i % period, :], grid[i, :]):
+                            is_periodic = False
+                            break
+                    else:
+                        if not np.array_equal(grid[:, i % period], grid[:, i]):
+                            is_periodic = False
+                            break
+                
+                if is_periodic:
+                    return period
+        
+        return None
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs should have repeating patterns"""
+        pattern_count = 0
+        
+        for example in train_examples:
+            output = np.array(example['output'])
+            
+            # Check for patterns in both dimensions
+            h_period = self._find_pattern_period(output, 0)
+            v_period = self._find_pattern_period(output, 1)
+            
+            if h_period is not None or v_period is not None:
+                pattern_count += 1
+        
+        return pattern_count / len(train_examples) > 0.5
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Complete partial patterns"""
+        # Try to detect partial pattern in prediction
+        h_period = self._find_pattern_period(pred_grid[:pred_grid.shape[0]//2, :], 0)
+        v_period = self._find_pattern_period(pred_grid[:, :pred_grid.shape[1]//2], 1)
+        
+        fixed_grid = pred_grid.copy()
+        
+        if h_period is not None:
+            # Complete horizontal pattern
+            for i in range(h_period, fixed_grid.shape[0]):
+                fixed_grid[i, :] = fixed_grid[i % h_period, :]
+        
+        elif v_period is not None:
+            # Complete vertical pattern
+            for j in range(v_period, fixed_grid.shape[1]):
+                fixed_grid[:, j] = fixed_grid[:, j % v_period]
+        
+        return fixed_grid
+
+
+class HeuristicPipeline:
+    """Apply multiple heuristics in sequence"""
+    
+    def __init__(self):
+        self.solvers = [
+            ColorPaletteSolver(),      # First ensure valid colors
+            GridSizeSolver(),          # Then fix size
+            ObjectIntegritySolver(),   # Clean up objects
+            SymmetrySolver(),          # Apply symmetry if needed
+            PatternCompletionSolver()  # Complete patterns
+        ]
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict], verbose: bool = True) -> np.ndarray:
+        """Apply all applicable heuristics"""
+        current_grid = pred_grid.copy()
+        applied = []
+        
+        for solver in self.solvers:
+            if solver.can_apply(input_grid, current_grid, train_examples):
+                if verbose:
+                    print(f"  📐 Applying {solver.name}")
+                current_grid = solver.apply(input_grid, current_grid, train_examples)
+                applied.append(solver.name)
+        
+        if verbose and applied:
+            print(f"  ✨ Applied heuristics: {', '.join(applied)}")
+        
+        return current_grid
+
+
+if __name__ == "__main__":
+    """Test heuristics on a simple example"""
+    print("🔧 Testing Heuristic Solvers")
+    print("="*50)
+    
+    # Test symmetry solver
+    test_grid = np.array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [1, 2, 4]  # Almost symmetric to first row
+    ])
+    
+    train_examples = [
+        {
+            'input': np.array([[1, 2], [3, 4]]),
+            'output': np.array([[1, 2], [1, 2]])  # Symmetric
+        }
+    ]
+    
+    solver = SymmetrySolver()
+    if solver.can_apply(test_grid, test_grid, train_examples):
+        fixed = solver.apply(test_grid, test_grid, train_examples)
+        print("Original grid:")
+        print(test_grid)
+        print("\nFixed grid (symmetric):")
+        print(fixed)

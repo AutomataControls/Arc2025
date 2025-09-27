@@ -65,7 +65,7 @@ RECONSTRUCTION_WEIGHT = 1.0
 EDGE_WEIGHT = 0.3
 COLOR_BALANCE_WEIGHT = 0.2
 STRUCTURE_WEIGHT = 0.3
-TRANSFORMATION_PENALTY = -0.5
+TRANSFORMATION_PENALTY = 0.5  # POSITIVE to penalize copying!
 EXACT_MATCH_BONUS = 5.0  # Big reward for exact matches!
 
 print(f"\n⚙️ V4 MEGA-SCALE Configuration:")
@@ -113,9 +113,15 @@ class MegaScaleLoss(nn.Module):
         
         reconstruction_loss = weighted_loss.mean(dim=[1,2])  # B
         
-        # 4. Transformation enforcement
+        # 4. Transformation PENALTY - only apply if not an identity task
+        # Check if this is an identity task (where copying IS correct)
+        is_identity_task = (input_indices == target_indices).all(dim=[1,2]).float()  # B
+        
+        # Calculate similarity to input
         same_as_input = (pred_indices == input_indices).float().mean(dim=[1,2])  # B
-        transformation_penalty = same_as_input
+        
+        # Apply penalty ONLY for non-identity tasks
+        transformation_penalty = same_as_input * (1 - is_identity_task)
         
         # 5. Active region focus
         active_mask = (target_indices != 0)
@@ -128,7 +134,7 @@ class MegaScaleLoss(nn.Module):
         # Combine with exact match bonus
         total_loss = (
             RECONSTRUCTION_WEIGHT * reconstruction_loss +
-            TRANSFORMATION_PENALTY * transformation_penalty +
+            TRANSFORMATION_PENALTY * transformation_penalty +  # Now properly penalizes copying
             0.5 * active_loss +
             exact_bonus  # This can make loss negative for exact matches!
         )
