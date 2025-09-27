@@ -82,9 +82,9 @@ except Exception as e:
     from arc_models_enhanced import create_enhanced_models
 
 # IMPROVED HYPERPARAMETERS FOR V3
-BATCH_SIZE = 128  # Reduced from 256 for more stable gradients
-GRADIENT_ACCUMULATION_STEPS = 2  # Effective batch size 256
-LEARNING_RATE = 0.00005  # Much lower for stable learning with residuals
+BATCH_SIZE = 32  # Much smaller for more frequent updates
+GRADIENT_ACCUMULATION_STEPS = 1  # No accumulation - update every batch
+LEARNING_RATE = 0.001  # Increased 20x - we're stuck and need to force learning
 NUM_EPOCHS = 200  # Increased from 100
 MAX_GRID_SIZE = 30
 NUM_COLORS = 10
@@ -487,15 +487,8 @@ def train_enhanced_models_v3():
             optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE * 2,  # Reduced multiplier
                                 momentum=0.9, weight_decay=0.01, nesterov=True)
         
-        # Learning rate scheduling - gentler with residuals
-        scheduler = optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=LEARNING_RATE * 1.5,  # Much gentler max
-            epochs=NUM_EPOCHS,
-            steps_per_epoch=len(train_loader),
-            pct_start=0.3,  # Longer warmup
-            anneal_strategy='cos'
-        )
+        # Simple constant learning rate - OneCycle might be preventing learning
+        scheduler = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0)
         
         scaler = GradScaler('cuda')
         
@@ -703,7 +696,7 @@ def train_enhanced_models_v3():
                 }
             )
             
-            if (epoch + 1) % 3 == 0:
+            if (epoch + 1) % 20 == 0:
                 monitor.show_dashboard()
             
             # Save best model
