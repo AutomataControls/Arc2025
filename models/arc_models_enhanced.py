@@ -211,16 +211,23 @@ class EnhancedMinervaNet(nn.Module):
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(hidden_dim * 2, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.ConvTranspose2d(128, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 10, 1)  # 10 colors
+            nn.ConvTranspose2d(64, 10, 1),  # 10 colors
+            # NO SOFTMAX - CrossEntropyLoss expects raw logits
         )
+        
+        # Initialize final layer properly
+        nn.init.xavier_uniform_(self.decoder[-1].weight)
+        nn.init.zeros_(self.decoder[-1].bias)
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
         
     def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None, 
-                mode: str = 'train') -> Dict[str, torch.Tensor]:
+                mode: str = 'inference') -> Dict[str, torch.Tensor]:
         
         # Extract object features
         input_features, input_objects = self.object_encoder(input_grid)
@@ -337,11 +344,17 @@ class EnhancedAtlasNet(nn.Module):
         # Decoder
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.ConvTranspose2d(64, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.ConvTranspose2d(32, 10, 1)
         )
+        
+        # Initialize final layer
+        nn.init.xavier_uniform_(self.decoder[-1].weight)
+        nn.init.zeros_(self.decoder[-1].bias)
         
         # Initialize affine matrix to identity
         self.fc_loc[-1].weight.data.zero_()
@@ -448,9 +461,14 @@ class EnhancedIrisNet(nn.Module):
         # Decoder
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(64, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.ConvTranspose2d(32, 10, 1)
         )
+        
+        # Initialize final layer
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
+        nn.init.zeros_(self.decoder[-1].bias)
         
         self.description = "Enhanced Color Pattern Recognition with Attention"
         
@@ -550,11 +568,17 @@ class EnhancedChronosNet(nn.Module):
         # Decoder
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128 + 128, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 3, padding=1), 
+            nn.ConvTranspose2d(128, 64, 3, padding=1),
+            nn.BatchNorm2d(64), 
             nn.ReLU(),
             nn.ConvTranspose2d(64, 10, 1)
         )
+        
+        # Initialize final layer
+        nn.init.xavier_uniform_(self.decoder[-1].weight)
+        nn.init.zeros_(self.decoder[-1].bias)
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         
@@ -687,13 +711,20 @@ class EnhancedPrometheusNet(nn.Module):
         # Decoder with skip connections
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.ConvTranspose2d(64, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.ConvTranspose2d(32, 10, 1)
         )
+        
+        # Initialize final layer with higher gain
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
+        nn.init.zeros_(self.decoder[-1].bias)
         
         self.description = "Enhanced Creative Pattern Generation with VAE"
         
