@@ -53,6 +53,9 @@ from Arc2025.models.arc_models_enhanced import create_enhanced_models
 # Import monitor
 from Arc2025.colab_monitor_integration import setup_colab_monitor
 
+# Enable mixed precision training for A100
+from torch.cuda.amp import GradScaler, autocast
+
 # Verify models load correctly
 print("\n🔍 Verifying enhanced models...")
 try:
@@ -64,9 +67,9 @@ except Exception as e:
     raise
 
 # Hyperparameters
-BATCH_SIZE = 16  # Reduced from 32 to save memory
-GRADIENT_ACCUMULATION_STEPS = 2  # Accumulate gradients to simulate batch size of 32
-LEARNING_RATE = 0.0001
+BATCH_SIZE = 64  # Increased to better utilize A100 GPU
+GRADIENT_ACCUMULATION_STEPS = 1  # No need for accumulation with large batch
+LEARNING_RATE = 0.0002  # Slightly higher LR for larger batch
 NUM_EPOCHS = 100
 MAX_GRID_SIZE = 30
 NUM_COLORS = 10
@@ -327,6 +330,9 @@ def train_enhanced_models():
         optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=0.01)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
         
+        # Mixed precision scaler
+        scaler = GradScaler()
+        
         # Training history
         history = {
             'train_loss': [],
@@ -354,29 +360,32 @@ def train_enhanced_models():
                 
                 optimizer.zero_grad()
                 
-                # Forward pass
-                if model_name == 'chronos':
-                    # CHRONOS expects a list of tensors for sequence processing
-                    # For training, we'll pass single frames
-                    outputs = model([input_grids])
-                else:
-                    outputs = model(input_grids, output_grids, mode='train')
+                # Mixed precision forward pass
+                with autocast():
+                    # Forward pass
+                    if model_name == 'chronos':
+                        # CHRONOS expects a list of tensors for sequence processing
+                        # For training, we'll pass single frames
+                        outputs = model([input_grids])
+                    else:
+                        outputs = model(input_grids, output_grids, mode='train')
+                    
+                    # Reconstruction loss
+                    pred_output = outputs['predicted_output']
+                    recon_loss = reconstruction_loss_fn(pred_output, output_grids)
+                    
+                    # Total loss
+                    loss = RECONSTRUCTION_WEIGHT * recon_loss
                 
-                # Reconstruction loss
-                pred_output = outputs['predicted_output']
-                recon_loss = reconstruction_loss_fn(pred_output, output_grids)
+                # Backward pass with gradient scaling
+                scaler.scale(loss).backward()
                 
-                # Total loss
-                loss = RECONSTRUCTION_WEIGHT * recon_loss
-                
-                # Scale loss for gradient accumulation
-                loss = loss / GRADIENT_ACCUMULATION_STEPS
-                loss.backward()
-                
-                # Update weights every GRADIENT_ACCUMULATION_STEPS
+                # Update weights
                 if (train_steps + 1) % GRADIENT_ACCUMULATION_STEPS == 0:
+                    scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                    optimizer.step()
+                    scaler.step(optimizer)
+                    scaler.update()
                     optimizer.zero_grad()
                 
                 train_loss += loss.item()
@@ -395,15 +404,18 @@ def train_enhanced_models():
                     input_grids = batch['input'].to(DEVICE)
                     output_grids = batch['output'].to(DEVICE)
                     
-                    # Forward pass
-                    if model_name == 'chronos':
-                        outputs = model([input_grids])
-                    else:
-                        outputs = model(input_grids)
+                    # Mixed precision forward pass
+                    with autocast():
+                        # Forward pass
+                        if model_name == 'chronos':
+                            outputs = model([input_grids])
+                        else:
+                            outputs = model(input_grids)
+                        
+                        # Compute loss
+                        pred_output = outputs['predicted_output']
+                        loss = reconstruction_loss_fn(pred_output, output_grids)
                     
-                    # Compute loss
-                    pred_output = outputs['predicted_output']
-                    loss = reconstruction_loss_fn(pred_output, output_grids)
                     val_loss += loss.item()
                     
                     # Compute accuracy (exact match)
