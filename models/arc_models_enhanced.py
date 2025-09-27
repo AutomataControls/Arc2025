@@ -263,9 +263,9 @@ class EnhancedMinervaNet(nn.Module):
             # Sigmoid to keep in [0, 1] range - but favor the prediction!
             mix = torch.sigmoid(self.mix_param)
             
-            # During training, use slightly less input mixing
+            # During training, use less input mixing to learn transformations
             if self.training:
-                mix = mix * 0.7  # Reduce input contribution by 30% during training
+                mix = mix * 0.5  # Reduce input contribution by 50% during training
                 
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
@@ -284,11 +284,11 @@ class EnhancedMinervaNet(nn.Module):
             # Mix prediction with input
             mix = torch.sigmoid(self.mix_param)
             
-            # During inference, use slightly more input for stability
+            # During inference, balance transformation and stability
             if self.training:
-                mix = mix * 0.7
+                mix = mix * 0.5
             else:
-                mix = mix * 0.8
+                mix = mix * 0.6
                 
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
