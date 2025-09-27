@@ -308,6 +308,10 @@ def train_enhanced_models():
     print(f"  Train samples: {len(train_dataset)}")
     print(f"  Val samples: {len(val_dataset)}")
     
+    # Create output directory for models
+    os.makedirs('/content/arc_models', exist_ok=True)
+    os.makedirs('/content/results', exist_ok=True)
+    
     # Create models
     models = create_enhanced_models()
     
