@@ -39,7 +39,10 @@ print("\n📥 Cloning ARC Prize 2025 repository...")
 if os.path.exists('Arc2025'):
     shutil.rmtree('Arc2025')
 os.system("git clone https://github.com/AutomataControls/Arc2025.git")
-print("✓ Repository cloned")
+
+# Make sure we have the latest version
+os.system("cd Arc2025 && git pull")
+print("✓ Repository cloned and updated")
 
 # Add to path
 sys.path.append('/content/Arc2025')
@@ -49,6 +52,16 @@ from Arc2025.models.arc_models_enhanced import create_enhanced_models
 
 # Import monitor
 from Arc2025.colab_monitor_integration import setup_colab_monitor
+
+# Verify models load correctly
+print("\n🔍 Verifying enhanced models...")
+try:
+    test_models = create_enhanced_models()
+    print(f"✓ Successfully loaded {len(test_models)} models: {list(test_models.keys())}")
+    del test_models
+except Exception as e:
+    print(f"❌ Error loading models: {e}")
+    raise
 
 # Hyperparameters
 BATCH_SIZE = 32
