@@ -13,8 +13,8 @@ from typing import Dict, List, Tuple, Optional
 import time
 
 # Add paths
-sys.path.append('/mnt/d/opt/ARCPrize2025')
-sys.path.append('/mnt/d/opt/ARCPrize2025/models')
+sys.path.append('/content/Arc2025')
+sys.path.append('/content/Arc2025/models')
 
 from ensemble_test_bench import OLYMPUSEnsemble
 from task_router import TaskRouter, SmartEnsemble
@@ -24,7 +24,7 @@ from heuristic_solvers import HeuristicPipeline
 class OLYMPUSRunner:
     """Complete OLYMPUS system with all enhancements"""
     
-    def __init__(self, model_dir: str = '/mnt/d/opt/ARCPrize2025/models/saved'):
+    def __init__(self, model_dir: str = '/content/arc_models_v4'):
         print("🏛️ Initializing OLYMPUS Complete System...")
         
         # Load base ensemble
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     if args.evaluate:
         olympus = OLYMPUSRunner()
         results = olympus.evaluate_on_training_set(
-            '/mnt/d/opt/ARCPrize2025/data/arc-agi_training_challenges.json',
+            '/content/arc-agi_training_challenges.json',
             n_tasks=args.n_tasks
         )
     

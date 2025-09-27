@@ -15,7 +15,7 @@ import sys
 import os
 
 # Add model path
-sys.path.append('/mnt/d/opt/ARCPrize2025/models')
+sys.path.append('/content/Arc2025/models')
 from arc_models_enhanced import (
     EnhancedMinervaNet, EnhancedAtlasNet, EnhancedIrisNet, 
     EnhancedChronosNet, EnhancedPrometheusNet
@@ -24,7 +24,7 @@ from arc_models_enhanced import (
 class OLYMPUSEnsemble:
     """The complete OLYMPUS ensemble with all 5 specialists"""
     
-    def __init__(self, model_dir: str = '/mnt/d/opt/ARCPrize2025/models/saved'):
+    def __init__(self, model_dir: str = '/content/arc_models_v4'):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"🏛️ OLYMPUS Ensemble initializing on {self.device}")
         
@@ -298,8 +298,8 @@ def test_ensemble_on_task(ensemble: OLYMPUSEnsemble, task_data: dict, task_id: s
     return is_correct, pixel_acc, result
 
 
-def run_validation_test(model_dir: str = '/mnt/d/opt/ARCPrize2025/models/saved', 
-                       data_path: str = '/mnt/d/opt/ARCPrize2025/data/arc-agi_training_challenges.json',
+def run_validation_test(model_dir: str = '/content/arc_models_v4', 
+                       data_path: str = '/content/arc-agi_training_challenges.json',
                        n_tasks: int = 20):
     """Run validation test on random tasks"""
     
