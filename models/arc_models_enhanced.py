@@ -208,6 +208,9 @@ class EnhancedMinervaNet(nn.Module):
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
+        # Residual gate - learnable weight for residual connection
+        self.residual_gate = nn.Parameter(torch.ones(1) * 0.5)
+        
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(hidden_dim * 2, 128, 3, padding=1),
@@ -220,9 +223,10 @@ class EnhancedMinervaNet(nn.Module):
             # NO SOFTMAX - CrossEntropyLoss expects raw logits
         )
         
-        # Initialize final layer properly
-        nn.init.xavier_uniform_(self.decoder[-1].weight)
-        nn.init.zeros_(self.decoder[-1].bias)
+        # Initialize final layer with larger values to compete with residual
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
+        # Initialize bias to slightly favor non-background colors
+        nn.init.constant_(self.decoder[-1].bias, -0.1)  # Slight negative bias
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
         
@@ -250,9 +254,9 @@ class EnhancedMinervaNet(nn.Module):
             transformed = self._apply_transform(combined_features, transform_params)
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
             
-            # CRITICAL: Add residual connection to input
+            # CRITICAL: Add residual connection with learnable gate
             # Most ARC tasks modify the input, not generate from scratch
-            predicted_output = predicted_output + input_grid
+            predicted_output = predicted_output + self.residual_gate * input_grid
             
             return {
                 'predicted_output': predicted_output,
@@ -266,8 +270,8 @@ class EnhancedMinervaNet(nn.Module):
             transformed = self._apply_transform(combined_features, best_transform)
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
             
-            # CRITICAL: Add residual connection to input
-            predicted_output = predicted_output + input_grid
+            # CRITICAL: Add residual connection with learnable gate
+            predicted_output = predicted_output + self.residual_gate * input_grid
             
             return {
                 'predicted_output': predicted_output,

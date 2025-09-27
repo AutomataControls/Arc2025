@@ -638,6 +638,15 @@ def train_enhanced_models_v3():
                     pixel_correct = (pred_colors == target_colors).float()
                     val_pixel_acc_sum += pixel_correct.mean().item() * 100
                     
+                    # DIAGNOSTIC: Check what colors are being predicted
+                    if epoch % 10 == 0 and val_batches_count == 0:
+                        unique_pred = torch.unique(pred_colors)
+                        unique_target = torch.unique(target_colors)
+                        print(f"\nDIAGNOSTIC Epoch {epoch+1}:")
+                        print(f"  Predicted colors: {unique_pred.tolist()}")
+                        print(f"  Target colors: {unique_target.tolist()}")
+                        print(f"  Most common predicted: {pred_colors.flatten().mode().values.item()}")
+                    
                     # Active region accuracy
                     active_mask = (target_colors != 0) | (pred_colors != 0)
                     if active_mask.any():
