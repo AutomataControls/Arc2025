@@ -90,12 +90,13 @@ MAX_GRID_SIZE = 30
 NUM_COLORS = 10
 DEVICE = device
 
-# IMPROVED LOSS WEIGHTS
+# IMPROVED LOSS WEIGHTS - FIXED FOR EXACT MATCH
 RECONSTRUCTION_WEIGHT = 1.0
-PATTERN_WEIGHT = 0.05  # Reduced
-CONSISTENCY_WEIGHT = 0.1  # Reduced
-EDGE_WEIGHT = 0.2  # NEW: Penalize edge errors more
-COLOR_BALANCE_WEIGHT = 0.1  # NEW: Encourage correct color distribution
+PATTERN_WEIGHT = 0.0  # Removed - not helping
+CONSISTENCY_WEIGHT = 0.05  # Reduced further
+EDGE_WEIGHT = 0.5  # INCREASED: Edge precision critical for exact match
+COLOR_BALANCE_WEIGHT = 0.3  # INCREASED: Must get colors exactly right
+STRUCTURE_WEIGHT = 0.4  # NEW: Added explicit structure weight
 
 print("\n⚙️ V3 Configuration:")
 print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
@@ -137,17 +138,17 @@ class ImprovedReconstructionLoss(nn.Module):
         
         ce_loss = self.ce_loss(pred_flat, target_flat)
         
-        # Focal loss: focus on hard examples
+        # Focal loss: EXTREME focus on hard examples
         pt = torch.exp(-ce_loss)  # probability of correct class
-        focal_loss = (1 - pt) ** 2 * ce_loss  # gamma=2
+        focal_loss = (1 - pt) ** 4 * ce_loss  # gamma=4 for EXTREME focus on errors
         focal_loss = focal_loss.reshape(B, H, W)
         
         # 2. Edge-aware loss
         # Detect edges in target
         target_edges = self._detect_edges(target_indices)
         
-        # Weight edge pixels more
-        edge_weight = 1.0 + target_edges * 2.0  # 3x weight on edges
+        # Weight edge pixels MUCH more - critical for exact match
+        edge_weight = 1.0 + target_edges * 9.0  # 10x weight on edges!
         weighted_loss = focal_loss * edge_weight
         
         reconstruction_loss = weighted_loss.mean()
@@ -168,7 +169,7 @@ class ImprovedReconstructionLoss(nn.Module):
             RECONSTRUCTION_WEIGHT * reconstruction_loss +
             COLOR_BALANCE_WEIGHT * color_balance_loss +
             CONSISTENCY_WEIGHT * consistency_loss +
-            EDGE_WEIGHT * structure_loss
+            STRUCTURE_WEIGHT * structure_loss  # Fixed: use STRUCTURE_WEIGHT not EDGE_WEIGHT
         )
         
         return {
@@ -415,19 +416,16 @@ class ModelWithDropoutSchedule(nn.Module):
     def __init__(self, base_model: nn.Module, initial_dropout: float = 0.2):
         super().__init__()
         self.base_model = base_model
-        self.dropout = nn.Dropout2d(initial_dropout)
         self.current_dropout = initial_dropout
+        # CRITICAL FIX: NEVER apply dropout to output predictions!
         
     def set_dropout(self, rate: float):
         self.current_dropout = rate
-        self.dropout.p = rate
+        # Dropout should be inside the model layers, not on final output
         
     def forward(self, *args, **kwargs):
         outputs = self.base_model(*args, **kwargs)
-        
-        if 'predicted_output' in outputs and self.training:
-            outputs['predicted_output'] = self.dropout(outputs['predicted_output'])
-        
+        # REMOVED DROPOUT ON OUTPUT - this was killing exact match!
         return outputs
 
 
@@ -567,7 +565,7 @@ def train_enhanced_models_v3():
                 
                 if (train_steps + 1) % GRADIENT_ACCUMULATION_STEPS == 0:
                     scaler.unscale_(optimizer)
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)  # Reduced
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)  # Increased to allow stronger updates
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
