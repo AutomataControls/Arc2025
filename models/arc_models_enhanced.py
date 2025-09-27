@@ -208,8 +208,8 @@ class EnhancedMinervaNet(nn.Module):
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
-        # Simple mixing parameter - start at 0.3 for balanced mixing
-        self.mix_param = nn.Parameter(torch.tensor(0.3))
+        # Simple mixing parameter - start at 0.2 to favor transformations more
+        self.mix_param = nn.Parameter(torch.tensor(0.2))
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
@@ -394,8 +394,8 @@ class EnhancedAtlasNet(nn.Module):
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
-        # Mix parameter - start moderate for stability
-        self.mix_param = nn.Parameter(torch.tensor(0.3))
+        # Mix parameter - start at 0.2 to favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.2))
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
@@ -630,8 +630,8 @@ class EnhancedChronosNet(nn.Module):
         # Diverse bias initialization for CHRONOS
         self.decoder[-1].bias.data = torch.tensor([0.0, 0.2, 0.15, 0.1, 0.2, 0.25, 0.15, 0.3, 0.2, 0.1])
         
-        # Mix parameter - start moderate for stability
-        self.mix_param = nn.Parameter(torch.tensor(0.3))
+        # Mix parameter - start at 0.2 to favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.2))
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         
