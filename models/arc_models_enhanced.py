@@ -227,8 +227,9 @@ class EnhancedMinervaNet(nn.Module):
         
         # Initialize final layer with MUCH larger values for strong predictions
         nn.init.xavier_uniform_(self.decoder[-1].weight, gain=5.0)
-        # Initialize bias to strongly favor non-background colors
-        nn.init.constant_(self.decoder[-1].bias, 0.5)  # Positive bias for action
+        # Initialize bias differently for each color channel to encourage diversity
+        bias_values = torch.linspace(-0.5, 1.5, 10)  # Different bias for each color
+        self.decoder[-1].bias.data = bias_values
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
         
@@ -384,7 +385,8 @@ class EnhancedAtlasNet(nn.Module):
         
         # Initialize final layer with strong values
         nn.init.xavier_uniform_(self.decoder[-1].weight, gain=3.0)
-        nn.init.constant_(self.decoder[-1].bias, 0.2)
+        # Diverse bias initialization for ATLAS
+        self.decoder[-1].bias.data = torch.linspace(-0.3, 0.7, 10)
         
         # Initialize affine matrix to identity
         self.fc_loc[-1].weight.data.zero_()
@@ -506,7 +508,8 @@ class EnhancedIrisNet(nn.Module):
         
         # Initialize final layer for strong color changes
         nn.init.xavier_uniform_(self.decoder[-1].weight, gain=4.0)
-        nn.init.constant_(self.decoder[-1].bias, 0.3)
+        # Diverse bias for all colors - IRIS specializes in color
+        self.decoder[-1].bias.data = torch.linspace(-0.2, 1.0, 10)
         
         self.description = "Enhanced Color Pattern Recognition with Attention"
         
@@ -622,7 +625,8 @@ class EnhancedChronosNet(nn.Module):
         
         # Initialize final layer with strong values
         nn.init.xavier_uniform_(self.decoder[-1].weight, gain=3.0)
-        nn.init.constant_(self.decoder[-1].bias, 0.2)
+        # Diverse bias initialization for CHRONOS
+        self.decoder[-1].bias.data = torch.linspace(-0.3, 0.7, 10)
         
         # Mix parameter - start VERY low to favor transformations
         self.mix_param = nn.Parameter(torch.tensor(0.01))
@@ -782,7 +786,8 @@ class EnhancedPrometheusNet(nn.Module):
         
         # Initialize final layer for creative generation
         nn.init.xavier_uniform_(self.decoder[-1].weight, gain=5.0)
-        nn.init.constant_(self.decoder[-1].bias, 0.5)
+        # Strong diverse bias for creativity - PROMETHEUS needs variety
+        self.decoder[-1].bias.data = torch.linspace(-0.5, 1.5, 10)
         
         self.description = "Enhanced Creative Pattern Generation with VAE"
         

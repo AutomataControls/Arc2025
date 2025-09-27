@@ -139,9 +139,9 @@ class ImprovedReconstructionLoss(nn.Module):
         
         ce_loss = self.ce_loss(pred_flat, target_flat)
         
-        # Focal loss: focus on hard examples but not too extreme
+        # Focal loss: focus on hard examples with moderate gamma
         pt = torch.exp(-ce_loss)  # probability of correct class
-        focal_loss = (1 - pt) ** 2 * ce_loss  # gamma=2 is more balanced
+        focal_loss = (1 - pt) ** 1.5 * ce_loss  # gamma=1.5 for gentler focus
         focal_loss = focal_loss.reshape(B, H, W)
         
         # 2. Edge-aware loss
