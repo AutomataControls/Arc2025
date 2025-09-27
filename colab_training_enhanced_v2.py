@@ -835,7 +835,7 @@ def train_enhanced_models_v2():
                     'train_loss': avg_train_loss,
                     'val_loss': avg_val_loss,
                     'train_acc': 0.0,  # We don't track train accuracy for reconstruction
-                    'val_acc': avg_pixel_acc / 100.0 if avg_pixel_acc > val_accuracy else val_accuracy / 100.0  # Use better metric for monitor
+                    'val_acc': val_accuracy / 100.0  # Use exact match for monitor (competition metric)
                 }
             )
             
