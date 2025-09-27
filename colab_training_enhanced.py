@@ -441,17 +441,21 @@ def train_enhanced_models():
             print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, "
                   f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_accuracy:.2f}%")
             
-            # Update monitor
+            # Update monitor with correct metric names
             monitor.update(
+                model_name=model_name,
                 epoch=epoch + 1,
                 metrics={
-                    'model': model_name,
                     'train_loss': avg_train_loss,
                     'val_loss': avg_val_loss,
-                    'val_accuracy': val_accuracy,
-                    'lr': scheduler.get_last_lr()[0]
+                    'train_acc': 0.0,  # We don't track train accuracy for reconstruction
+                    'val_acc': val_accuracy / 100.0  # Convert percentage to ratio
                 }
             )
+            
+            # Show dashboard every 3 epochs
+            if (epoch + 1) % 3 == 0:
+                monitor.show_dashboard()
             
             # Check if we hit 85% target
             if val_accuracy >= 85:
@@ -490,6 +494,10 @@ def train_enhanced_models():
             'final_accuracy': history['val_accuracy'][-1],
             'best_accuracy': best_val_acc
         }, f'/content/arc_models/{model_name}_enhanced_final.pt')
+        
+        # Show final dashboard for this model
+        print(f"\nFinal results for {model_name.upper()}: Best Acc = {best_val_acc:.2f}%")
+        monitor.show_dashboard()
         
         # Export to ONNX
         print(f"\n📦 Exporting {model_name} to ONNX...")
