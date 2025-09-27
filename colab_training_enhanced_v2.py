@@ -27,34 +27,34 @@ except:
     try:
         from improved_accuracy_metrics import ARCAccuracyMetrics
     except:
-    # Inline definition if import fails
-    class ARCAccuracyMetrics:
-        @staticmethod
-        def calculate_metrics(pred_output, target_output):
-            pred_colors = pred_output.argmax(dim=1)
-            target_colors = target_output.argmax(dim=1)
-            
-            # Exact match
-            exact_matches = (pred_colors == target_colors).all(dim=[1,2])
-            exact_accuracy = exact_matches.float().mean().item() * 100
-            
-            # Pixel-wise accuracy
-            pixel_correct = (pred_colors == target_colors).float()
-            pixel_accuracy = pixel_correct.mean().item() * 100
-            
-            # Active region accuracy
-            active_mask = (target_colors != 0) | (pred_colors != 0)
-            if active_mask.any():
-                active_correct = pixel_correct[active_mask]
-                active_accuracy = active_correct.mean().item() * 100
-            else:
-                active_accuracy = 100.0
-            
-            return {
-                'exact_match': exact_accuracy,
-                'pixel_wise': pixel_accuracy,
-                'active_region': active_accuracy
-            }
+        # Inline definition if import fails
+        class ARCAccuracyMetrics:
+            @staticmethod
+            def calculate_metrics(pred_output, target_output):
+                pred_colors = pred_output.argmax(dim=1)
+                target_colors = target_output.argmax(dim=1)
+                
+                # Exact match
+                exact_matches = (pred_colors == target_colors).all(dim=[1,2])
+                exact_accuracy = exact_matches.float().mean().item() * 100
+                
+                # Pixel-wise accuracy
+                pixel_correct = (pred_colors == target_colors).float()
+                pixel_accuracy = pixel_correct.mean().item() * 100
+                
+                # Active region accuracy
+                active_mask = (target_colors != 0) | (pred_colors != 0)
+                if active_mask.any():
+                    active_correct = pixel_correct[active_mask]
+                    active_accuracy = active_correct.mean().item() * 100
+                else:
+                    active_accuracy = 100.0
+                
+                return {
+                    'exact_match': exact_accuracy,
+                    'pixel_wise': pixel_accuracy,
+                    'active_region': active_accuracy
+                }
 from tqdm import tqdm
 import os
 import shutil
