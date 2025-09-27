@@ -550,7 +550,7 @@ def train_enhanced_models_v3():
             train_steps = 0
             
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{NUM_EPOCHS}")
-            for batch in pbar:
+            for batch_idx, batch in enumerate(pbar):
                 input_grids = batch['input'].to(DEVICE)
                 output_grids = batch['output'].to(DEVICE)
                 
@@ -584,7 +584,6 @@ def train_enhanced_models_v3():
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
-                    scheduler.step()
                 
                 train_loss += losses['total'].item()
                 train_steps += 1
@@ -594,6 +593,9 @@ def train_enhanced_models_v3():
                     'recon': f'{losses["reconstruction"].item():.4f}',
                     'struct': f'{losses["structure"].item():.4f}'
                 })
+            
+            # Step scheduler once per epoch
+            scheduler.step()
             
             # Validation phase
             model.eval()
