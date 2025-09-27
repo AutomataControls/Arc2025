@@ -24,19 +24,40 @@ class GridAttention(nn.Module):
         # Multi-head attention
         self.attention = nn.MultiheadAttention(channels, num_heads=8, batch_first=True)
         
+        # Projection layers for dimension matching
+        self.input_proj = None
+        self.output_proj = None
+        
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, C, H, W = x.shape
         
-        # Add positional embeddings
-        row_emb = self.row_embed[:H, :].unsqueeze(1).expand(-1, W, -1)
-        col_emb = self.col_embed[:W, :].unsqueeze(0).expand(H, -1, -1)
-        pos_emb = torch.cat([row_emb, col_emb], dim=-1).permute(2, 0, 1).unsqueeze(0)
+        # Initialize projection layers if needed
+        if self.input_proj is None and C != self.channels:
+            self.input_proj = nn.Linear(C, self.channels).to(x.device)
+            self.output_proj = nn.Linear(self.channels, C).to(x.device)
         
         # Apply attention with position awareness
         x_flat = x.view(B, C, -1).permute(0, 2, 1)  # B, H*W, C
-        x_with_pos = x_flat + pos_emb.expand(B, -1, H*W, -1).reshape(B, H*W, C)
         
+        # Project to attention dimension if needed
+        if C != self.channels:
+            x_flat = self.input_proj(x_flat)
+        
+        # Add positional embeddings
+        row_emb = self.row_embed[:H, :].unsqueeze(1).expand(-1, W, -1)  # H, W, channels//2
+        col_emb = self.col_embed[:W, :].unsqueeze(0).expand(H, -1, -1)  # H, W, channels//2
+        pos_emb = torch.cat([row_emb, col_emb], dim=-1)  # H, W, channels
+        pos_emb = pos_emb.reshape(H*W, self.channels).unsqueeze(0).expand(B, -1, -1)  # B, H*W, channels
+        
+        x_with_pos = x_flat + pos_emb
+        
+        # Apply attention
         attended, _ = self.attention(x_with_pos, x_with_pos, x_with_pos)
+        
+        # Project back if needed
+        if C != self.channels:
+            attended = self.output_proj(attended)
+        
         return attended.permute(0, 2, 1).view(B, C, H, W)
 
 
