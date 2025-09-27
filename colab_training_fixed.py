@@ -48,6 +48,9 @@ from models.arc_models import (
     create_models
 )
 
+# Import training monitor
+from colab_monitor_integration import setup_colab_monitor, update_monitor_in_loop
+
 # Enhanced Dataset class with better pattern detection
 class ARCDataset(Dataset):
     def __init__(self, data_path: str, max_grid_size: int = 30):
@@ -418,6 +421,15 @@ class ModelTrainer:
                   f'Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f} '
                   f'LR: {scheduler.get_last_lr()[0]:.6f}')
             
+            # Update training monitor (defined globally)
+            if 'monitor' in globals():
+                target_reached = update_monitor_in_loop(
+                    monitor, self, self.model_name, epoch + 1, self.history
+                )
+                if target_reached:
+                    print(f"\n🏆 {self.model_name.upper()} ACHIEVED GRAND PRIZE TARGET! 85% accuracy! 🏆")
+                    break
+            
             # Early stopping
             if self.patience_counter >= self.early_stop_patience:
                 print(f"Early stopping triggered at epoch {epoch+1}")
@@ -440,6 +452,10 @@ class ModelTrainer:
 print("\n🚀 Starting PROPER model training with FULL dataset...")
 models = create_models()
 training_results = {}
+
+# Setup training monitor for 85% target tracking
+print("\n📊 Setting up training monitor for grand prize tracking...")
+monitor = setup_colab_monitor()
 
 # REAL training parameters
 EPOCHS = 50  # Proper epochs, not 3!
