@@ -209,7 +209,7 @@ class EnhancedMinervaNet(nn.Module):
         self.transform_proj = nn.Linear(128, hidden_dim)
         
         # Residual gate - learnable weight for residual connection
-        self.residual_gate = nn.Parameter(torch.ones(1) * 0.5)
+        self.residual_gate = nn.Parameter(torch.ones(1) * 0.1)  # Start with weak residual
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
@@ -371,6 +371,9 @@ class EnhancedAtlasNet(nn.Module):
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
+        # Residual gate
+        self.residual_gate = nn.Parameter(torch.ones(1) * 0.1)
+        
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
     def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
@@ -404,8 +407,8 @@ class EnhancedAtlasNet(nn.Module):
         # Decode to output
         predicted_output = self.decoder(transformed_features)
         
-        # Add residual connection
-        predicted_output = predicted_output + input_grid
+        # Add residual connection with gate
+        predicted_output = predicted_output + self.residual_gate * input_grid
         
         return {
             'predicted_output': predicted_output,
@@ -516,8 +519,8 @@ class EnhancedIrisNet(nn.Module):
         # Final decode
         predicted_output = self.decoder(combined)
         
-        # Residual connection - but use mapped output as base
-        predicted_output = predicted_output + mapped_output
+        # For IRIS, we don't add residual - it does color mapping
+        # The mapped_output already contains the transformed colors
         
         return {
             'predicted_output': predicted_output,
@@ -597,6 +600,9 @@ class EnhancedChronosNet(nn.Module):
         nn.init.xavier_uniform_(self.decoder[-1].weight)
         nn.init.zeros_(self.decoder[-1].bias)
         
+        # Residual gate
+        self.residual_gate = nn.Parameter(torch.ones(1) * 0.1)
+        
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         
     def forward(self, sequence: List[torch.Tensor], target: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
@@ -645,8 +651,8 @@ class EnhancedChronosNet(nn.Module):
         combined = torch.cat([last_frame_features, moved_features], dim=1)
         predicted_output = self.decoder(combined)
         
-        # Residual from last frame
-        predicted_output = predicted_output + sequence[-1]
+        # Residual from last frame with gate
+        predicted_output = predicted_output + self.residual_gate * sequence[-1]
         
         return {
             'predicted_output': predicted_output,
@@ -664,8 +670,8 @@ class EnhancedChronosNet(nn.Module):
         combined = torch.cat([features, obj_features], dim=1)
         predicted_output = self.decoder(combined)
         
-        # Residual
-        predicted_output = predicted_output + input_grid
+        # Residual with gate
+        predicted_output = predicted_output + self.residual_gate * input_grid
         
         return {
             'predicted_output': predicted_output,
