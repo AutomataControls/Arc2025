@@ -84,7 +84,7 @@ except Exception as e:
 # IMPROVED HYPERPARAMETERS FOR V3
 BATCH_SIZE = 128  # Reduced from 256 for more stable gradients
 GRADIENT_ACCUMULATION_STEPS = 2  # Effective batch size 256
-LEARNING_RATE = 0.0003  # Reduced from 0.0008
+LEARNING_RATE = 0.00005  # Much lower for stable learning with residuals
 NUM_EPOCHS = 200  # Increased from 100
 MAX_GRID_SIZE = 30
 NUM_COLORS = 10
@@ -138,17 +138,17 @@ class ImprovedReconstructionLoss(nn.Module):
         
         ce_loss = self.ce_loss(pred_flat, target_flat)
         
-        # Focal loss: EXTREME focus on hard examples
+        # Focal loss: focus on hard examples but not too extreme
         pt = torch.exp(-ce_loss)  # probability of correct class
-        focal_loss = (1 - pt) ** 4 * ce_loss  # gamma=4 for EXTREME focus on errors
+        focal_loss = (1 - pt) ** 2 * ce_loss  # gamma=2 is more balanced
         focal_loss = focal_loss.reshape(B, H, W)
         
         # 2. Edge-aware loss
         # Detect edges in target
         target_edges = self._detect_edges(target_indices)
         
-        # Weight edge pixels MUCH more - critical for exact match
-        edge_weight = 1.0 + target_edges * 9.0  # 10x weight on edges!
+        # Weight edge pixels more - but not too much
+        edge_weight = 1.0 + target_edges * 2.0  # 3x weight on edges
         weighted_loss = focal_loss * edge_weight
         
         reconstruction_loss = weighted_loss.mean()
@@ -484,16 +484,16 @@ def train_enhanced_models_v3():
                                   weight_decay=0.01, betas=(0.9, 0.999))
         else:
             # Use SGD for others - sometimes works better
-            optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE * 5, 
+            optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE * 2,  # Reduced multiplier
                                 momentum=0.9, weight_decay=0.01, nesterov=True)
         
-        # Learning rate scheduling
+        # Learning rate scheduling - gentler with residuals
         scheduler = optim.lr_scheduler.OneCycleLR(
             optimizer,
-            max_lr=LEARNING_RATE * 3,
+            max_lr=LEARNING_RATE * 1.5,  # Much gentler max
             epochs=NUM_EPOCHS,
             steps_per_epoch=len(train_loader),
-            pct_start=0.1,
+            pct_start=0.3,  # Longer warmup
             anneal_strategy='cos'
         )
         
