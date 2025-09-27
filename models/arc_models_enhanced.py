@@ -208,8 +208,8 @@ class EnhancedMinervaNet(nn.Module):
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
-        # Simple mixing parameter - start at 0.01 to STRONGLY favor predictions
-        self.mix_param = nn.Parameter(torch.tensor(0.01))
+        # Simple mixing parameter - start at 0.3 for balanced mixing
+        self.mix_param = nn.Parameter(torch.tensor(0.3))
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
@@ -225,12 +225,12 @@ class EnhancedMinervaNet(nn.Module):
             # NO SOFTMAX - CrossEntropyLoss expects raw logits
         )
         
-        # Initialize final layer with MUCH larger values for strong predictions
-        # Use normal initialization for more variety
-        nn.init.normal_(self.decoder[-1].weight, mean=0.0, std=1.0)
-        # Initialize bias differently for each color channel to encourage diversity
-        # Make sure all colors have reasonable starting biases
-        bias_values = torch.tensor([0.0, 0.2, 0.1, 0.15, 0.05, 0.1, 0.2, 0.3, 0.25, 0.1])
+        # Initialize final layer with moderate values for stability
+        # Use xavier for balanced initialization
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.0)
+        # Initialize bias with small positive values for all colors
+        # Background (0) gets 0 bias, others get small positive bias
+        bias_values = torch.tensor([0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
         self.decoder[-1].bias.data = bias_values
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
@@ -263,9 +263,9 @@ class EnhancedMinervaNet(nn.Module):
             # Sigmoid to keep in [0, 1] range - but favor the prediction!
             mix = torch.sigmoid(self.mix_param)
             
-            # During training, use even less input mixing to force learning transformations
+            # During training, use slightly less input mixing
             if self.training:
-                mix = mix * 0.1  # Reduce input contribution by 10x during training
+                mix = mix * 0.7  # Reduce input contribution by 30% during training
                 
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
@@ -284,11 +284,11 @@ class EnhancedMinervaNet(nn.Module):
             # Mix prediction with input
             mix = torch.sigmoid(self.mix_param)
             
-            # During inference, still use less input
+            # During inference, use slightly more input for stability
             if self.training:
-                mix = mix * 0.1
+                mix = mix * 0.7
             else:
-                mix = mix * 0.5
+                mix = mix * 0.8
                 
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
@@ -394,8 +394,8 @@ class EnhancedAtlasNet(nn.Module):
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
-        # Mix parameter - start VERY low to favor transformations
-        self.mix_param = nn.Parameter(torch.tensor(0.01))
+        # Mix parameter - start moderate for stability
+        self.mix_param = nn.Parameter(torch.tensor(0.3))
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
@@ -630,8 +630,8 @@ class EnhancedChronosNet(nn.Module):
         # Diverse bias initialization for CHRONOS
         self.decoder[-1].bias.data = torch.tensor([0.0, 0.2, 0.15, 0.1, 0.2, 0.25, 0.15, 0.3, 0.2, 0.1])
         
-        # Mix parameter - start VERY low to favor transformations
-        self.mix_param = nn.Parameter(torch.tensor(0.01))
+        # Mix parameter - start moderate for stability
+        self.mix_param = nn.Parameter(torch.tensor(0.3))
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         

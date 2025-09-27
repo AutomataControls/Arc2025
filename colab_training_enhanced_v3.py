@@ -97,7 +97,7 @@ CONSISTENCY_WEIGHT = 0.01  # Reduced even further
 EDGE_WEIGHT = 0.5  # Reduced: Too much edge focus hurts active regions
 COLOR_BALANCE_WEIGHT = 0.3  # Balanced: Must get colors right but not dominate
 STRUCTURE_WEIGHT = 0.4  # Moderate: Important but not overwhelming
-TRANSFORMATION_PENALTY = -0.5  # Reduced: Still encourage change but not too harsh
+TRANSFORMATION_PENALTY = -0.1  # Much gentler: Slight encouragement to transform
 
 print("\n⚙️ V3 Configuration:")
 print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
