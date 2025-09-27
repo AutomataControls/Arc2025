@@ -378,7 +378,8 @@ class EnhancedAtlasNet(nn.Module):
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
-    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None, 
+                mode: str = 'inference') -> Dict[str, torch.Tensor]:
         B = input_grid.shape[0]
         
         # Encode features
@@ -491,7 +492,8 @@ class EnhancedIrisNet(nn.Module):
         
         self.description = "Enhanced Color Pattern Recognition with Attention"
         
-    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None, 
+                mode: str = 'inference') -> Dict[str, torch.Tensor]:
         B, C, H, W = input_grid.shape
         
         # Get color distribution
@@ -794,7 +796,8 @@ class EnhancedPrometheusNet(nn.Module):
         
         return output
     
-    def forward(self, input_grid: torch.Tensor, target_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+    def forward(self, input_grid: torch.Tensor, target_grid: Optional[torch.Tensor] = None, 
+                mode: str = 'inference') -> Dict[str, torch.Tensor]:
         # Encode
         mu, log_var = self.encode(input_grid)
         z = self.reparameterize(mu, log_var)
