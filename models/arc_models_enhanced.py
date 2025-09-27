@@ -496,8 +496,12 @@ class EnhancedChronosNet(nn.Module):
         # Object tracking
         self.object_encoder = ObjectEncoder(10, 128)
         
-        # Temporal reasoning with attention
+        # Temporal reasoning with attention  
         self.temporal_attention = nn.MultiheadAttention(hidden_dim, num_heads=8, batch_first=True)
+        self.hidden_dim = hidden_dim
+        
+        # Projection layer for feature dimension matching
+        self.feature_proj = nn.Linear(128, hidden_dim) if hidden_dim != 128 else nn.Identity()
         
         # Sequence predictor
         self.lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers=2, batch_first=True, bidirectional=True)
@@ -537,7 +541,15 @@ class EnhancedChronosNet(nn.Module):
             object_sequences.append(obj_features)
         
         # Stack sequences
-        seq_tensor = torch.stack([F.adaptive_avg_pool2d(f, 1).squeeze(-1).squeeze(-1) for f in encoded_sequence], dim=1)
+        # Pool features to get fixed dimension
+        seq_features = []
+        for features in encoded_sequence:
+            pooled = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)  # B, 128
+            # Project to hidden_dim if needed
+            pooled = self.feature_proj(pooled)
+            seq_features.append(pooled)
+        
+        seq_tensor = torch.stack(seq_features, dim=1)  # B, seq_len, hidden_dim
         
         # Temporal attention
         attended_seq, attention_weights = self.temporal_attention(seq_tensor, seq_tensor, seq_tensor)

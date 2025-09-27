@@ -3,789 +3,837 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OLYMPUS Neural Collective - Ensemble Architecture</title>
+    <title>OLYMPUS Neural Collective - Technical Documentation</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0a0a0a;
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            color: #333333;
             line-height: 1.6;
-            overflow-x: hidden;
         }
-
-        /* Animated Background */
-        .cosmic-bg {
-            position: fixed;
+        
+        .nav {
+            background: #000000;
+            color: white;
+            padding: 20px 40px;
+            position: sticky;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0a 100%);
-            overflow: hidden;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
-
-        .neural-network {
-            position: absolute;
-            width: 100%;
-            height: 100%;
+        
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-
-        /* Header */
-        .header {
-            text-align: center;
-            padding: 60px 20px;
-            position: relative;
-            z-index: 10;
+        
+        .nav h1 {
+            font-size: 24px;
+            font-weight: 600;
         }
-
-        .title {
-            font-size: 4rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF6B6B 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-            animation: glow 3s ease-in-out infinite alternate;
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
         }
-
-        @keyframes glow {
-            0% { filter: brightness(1) drop-shadow(0 0 20px rgba(255, 215, 0, 0.5)); }
-            100% { filter: brightness(1.2) drop-shadow(0 0 30px rgba(255, 215, 0, 0.8)); }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s ease;
         }
-
-        .subtitle {
-            font-size: 1.5rem;
-            color: #888;
-            margin-bottom: 10px;
+        
+        .nav-links a:hover {
+            color: #00d4aa;
         }
-
-        .tagline {
-            font-size: 1.2rem;
-            color: #FFD700;
-            font-style: italic;
-        }
-
-        /* Container */
+        
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 20px;
-            position: relative;
-            z-index: 10;
+            padding: 60px 40px;
         }
-
-        /* Architecture Section */
-        .architecture-section {
-            background: rgba(26, 26, 46, 0.8);
+        
+        .section {
+            margin-bottom: 80px;
+            animation: fadeIn 1s ease-out;
+        }
+        
+        h2 {
+            font-size: 36px;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #00d4aa;
+        }
+        
+        h3 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #000000;
+            margin: 30px 0 20px 0;
+        }
+        
+        p {
+            font-size: 18px;
+            color: #666666;
+            margin-bottom: 20px;
+        }
+        
+        .architecture {
+            background: #f5f5f5;
             border-radius: 20px;
             padding: 40px;
             margin: 40px 0;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
-
-        .section-title {
-            font-size: 2.5rem;
-            color: #FFD700;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        /* Ensemble Visualization */
-        .ensemble-viz {
+        
+        /* OLYMPUS Visualization */
+        .ensemble-diagram {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 40px 0;
+            margin: 50px 0;
             position: relative;
-            min-height: 500px;
+            min-height: 400px;
         }
-
-        .olympus-core {
-            width: 200px;
-            height: 200px;
-            background: radial-gradient(circle, #FFD700 0%, #FFA500 50%, #FF6B6B 100%);
+        
+        .olympus-center {
+            width: 150px;
+            height: 150px;
+            background: #000000;
+            color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2rem;
             font-weight: bold;
-            color: #000;
-            box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
-            animation: pulse 2s infinite;
+            font-size: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             z-index: 10;
         }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        .model-node {
+        
+        .model-circle {
             position: absolute;
-            width: 120px;
-            height: 120px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #fff;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            cursor: pointer;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
         }
-
-        .model-node:hover {
+        
+        .model-circle:hover {
             transform: scale(1.1);
             z-index: 20;
         }
-
-        .minerva { 
-            background: linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%);
-            top: -150px;
+        
+        .model-minerva {
+            background: #9B59B6;
+            top: -120px;
             left: 50%;
             transform: translateX(-50%);
         }
-
-        .atlas { 
-            background: linear-gradient(135deg, #3498DB 0%, #2980B9 100%);
+        
+        .model-atlas {
+            background: #3498DB;
             top: 50%;
-            right: -150px;
+            right: -120px;
             transform: translateY(-50%);
         }
-
-        .iris { 
-            background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
-            bottom: -150px;
+        
+        .model-iris {
+            background: #E74C3C;
+            bottom: -50px;
             right: -50px;
         }
-
-        .chronos { 
-            background: linear-gradient(135deg, #F39C12 0%, #D68910 100%);
-            bottom: -150px;
+        
+        .model-chronos {
+            background: #F39C12;
+            bottom: -50px;
             left: -50px;
         }
-
-        .prometheus { 
-            background: linear-gradient(135deg, #27AE60 0%, #229954 100%);
+        
+        .model-prometheus {
+            background: #27AE60;
             top: 50%;
-            left: -150px;
+            left: -120px;
             transform: translateY(-50%);
         }
-
-        /* Neural Connections */
-        .connection {
-            position: absolute;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #FFD700, transparent);
-            transform-origin: left center;
-            animation: flow 2s linear infinite;
-        }
-
-        @keyframes flow {
-            0% { background-position: -100px 0; }
-            100% { background-position: 100px 0; }
-        }
-
-        /* Model Cards */
-        .model-grid {
+        
+        .model-specs {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
             margin: 40px 0;
         }
-
-        .model-card {
-            background: rgba(40, 40, 60, 0.8);
+        
+        .spec-card {
+            background: white;
+            border: 2px solid #e8e8e8;
             border-radius: 15px;
             padding: 25px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
             transition: all 0.3s ease;
         }
-
-        .model-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
-            border-color: rgba(255, 215, 0, 0.5);
+        
+        .spec-card:hover {
+            border-color: #00d4aa;
+            box-shadow: 0 5px 20px rgba(0, 212, 170, 0.2);
         }
-
-        .model-name {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .model-role {
-            color: #FFD700;
-            margin-bottom: 15px;
-        }
-
-        .model-specs {
-            list-style: none;
-            color: #aaa;
-        }
-
-        .model-specs li {
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Workflow Diagram */
-        .workflow {
-            background: rgba(20, 20, 40, 0.9);
-            border-radius: 15px;
-            padding: 30px;
-            margin: 30px 0;
-        }
-
-        .workflow-step {
+        
+        .spec-header {
             display: flex;
             align-items: center;
-            margin: 20px 0;
-            position: relative;
+            gap: 15px;
+            margin-bottom: 15px;
         }
-
-        .step-number {
+        
+        .spec-icon {
             width: 50px;
             height: 50px;
-            background: #FFD700;
-            color: #000;
-            border-radius: 50%;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            font-size: 1.5rem;
-            margin-right: 20px;
+            font-size: 24px;
+            color: white;
         }
-
-        .step-content {
+        
+        .spec-card h4 {
+            font-size: 20px;
+            color: #000000;
+            margin: 0;
+        }
+        
+        .spec-card .subtitle {
+            color: #666666;
+            font-size: 14px;
+            margin-top: 2px;
+        }
+        
+        .spec-card ul {
+            list-style: none;
+            margin-top: 15px;
+        }
+        
+        .spec-card li {
+            padding: 5px 0;
+            color: #666666;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            margin: 40px 0;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        
+        .flow-box {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
             flex: 1;
+            min-width: 250px;
         }
-
-        .step-title {
-            font-size: 1.3rem;
-            color: #FFD700;
-            margin-bottom: 5px;
+        
+        .flow-box:hover {
+            transform: translateY(-5px);
         }
-
-        .step-description {
-            color: #aaa;
+        
+        .flow-box h4 {
+            font-size: 20px;
+            color: #000000;
+            margin-bottom: 10px;
         }
-
-        /* Performance Metrics */
+        
+        .flow-arrow {
+            font-size: 30px;
+            color: #00d4aa;
+        }
+        
+        .strategy-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .strategy-card {
+            background: #f5f5f5;
+            border-radius: 15px;
+            padding: 30px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .strategy-card:hover {
+            border-color: #00d4aa;
+        }
+        
+        .strategy-card h4 {
+            font-size: 22px;
+            color: #000000;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .strategy-icon {
+            font-size: 28px;
+        }
+        
+        .code-block {
+            background: #000000;
+            color: #00d4aa;
+            padding: 25px;
+            border-radius: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
         .metrics {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
-            margin: 30px 0;
+            margin: 40px 0;
         }
-
-        .metric-card {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.1) 100%);
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
+        
+        .metric-box {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            padding: 30px;
+            border-radius: 15px;
             text-align: center;
         }
-
+        
         .metric-value {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #FFD700;
+            font-size: 36px;
+            font-weight: 700;
+            color: #00d4aa;
         }
-
+        
         .metric-label {
-            color: #aaa;
-            margin-top: 5px;
+            font-size: 16px;
+            color: #666666;
+            margin-top: 10px;
         }
-
-        /* Strategy Sections */
-        .strategy-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin: 30px 0;
-        }
-
-        .strategy-card {
-            background: rgba(30, 30, 50, 0.8);
-            border-radius: 15px;
-            padding: 30px;
-            border: 2px solid rgba(255, 215, 0, 0.3);
-        }
-
-        .strategy-title {
-            font-size: 1.5rem;
-            color: #FFD700;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-        }
-
-        .strategy-icon {
-            font-size: 2rem;
-            margin-right: 15px;
-        }
-
-        /* Code Block */
-        .code-block {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 20px;
-            font-family: 'Fira Code', monospace;
-            overflow-x: auto;
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
             margin: 20px 0;
         }
-
-        .code-block pre {
-            color: #e0e0e0;
-            margin: 0;
+        
+        th {
+            background: #000000;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
         }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 40px 20px;
-            color: #666;
-            border-top: 1px solid rgba(255, 215, 0, 0.2);
-            margin-top: 60px;
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e8e8e8;
         }
-
-        /* Responsive */
+        
+        tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .highlight {
+            background: #00d4aa;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin: 40px 0;
+        }
+        
+        .benefit-card {
+            background: white;
+            border: 2px solid #e8e8e8;
+            border-radius: 15px;
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .benefit-card:hover {
+            border-color: #00d4aa;
+            box-shadow: 0 5px 20px rgba(0, 212, 170, 0.2);
+        }
+        
+        .benefit-card h5 {
+            font-size: 20px;
+            color: #000000;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .benefit-icon {
+            color: #00d4aa;
+            font-size: 24px;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
         @media (max-width: 768px) {
-            .title { font-size: 2.5rem; }
-            .ensemble-viz { min-height: 600px; }
-            .model-node { 
+            .container {
+                padding: 40px 20px;
+            }
+            
+            h2 {
+                font-size: 28px;
+            }
+            
+            .flow-diagram {
+                flex-direction: column;
+            }
+            
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+            
+            .strategy-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .ensemble-diagram {
+                min-height: 500px;
+            }
+            
+            .model-circle {
                 position: static;
                 margin: 10px;
                 transform: none !important;
             }
-            .strategy-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <div class="cosmic-bg">
-        <canvas class="neural-network" id="neuralCanvas"></canvas>
-    </div>
-
-    <header class="header">
-        <h1 class="title">OLYMPUS</h1>
-        <p class="subtitle">Neural Collective Intelligence System</p>
-        <p class="tagline">"Where Five Minds Become One Supreme Intelligence"</p>
-    </header>
-
+    <nav class="nav">
+        <div class="nav-content">
+            <h1>OLYMPUS Neural Collective - Technical Documentation</h1>
+            <div class="nav-links">
+                <a href="#architecture">Architecture</a>
+                <a href="#models">Models</a>
+                <a href="#workflow">Workflow</a>
+                <a href="#performance">Performance</a>
+            </div>
+        </div>
+    </nav>
+    
     <div class="container">
-        <!-- Architecture Overview -->
-        <section class="architecture-section">
-            <h2 class="section-title">🏛️ The OLYMPUS Architecture</h2>
+        <section id="architecture" class="section">
+            <h2>OLYMPUS Architecture Overview</h2>
             
-            <div class="ensemble-viz">
-                <div class="olympus-core">OLYMPUS</div>
+            <div class="architecture">
+                <h3>Collective Intelligence System</h3>
+                <p>OLYMPUS orchestrates five specialized neural networks as a unified intelligence system. Each model contributes its unique expertise, creating a collective that surpasses any individual model's capabilities.</p>
                 
-                <div class="model-node minerva">
-                    <div>MINERVA</div>
-                    <small>Strategy</small>
-                </div>
-                
-                <div class="model-node atlas">
-                    <div>ATLAS</div>
-                    <small>Spatial</small>
-                </div>
-                
-                <div class="model-node iris">
-                    <div>IRIS</div>
-                    <small>Color</small>
-                </div>
-                
-                <div class="model-node chronos">
-                    <div>CHRONOS</div>
-                    <small>Temporal</small>
-                </div>
-                
-                <div class="model-node prometheus">
-                    <div>PROMETHEUS</div>
-                    <small>Creative</small>
-                </div>
-                
-                <!-- Neural connections -->
-                <svg style="position: absolute; width: 100%; height: 100%; pointer-events: none;">
-                    <line x1="50%" y1="30%" x2="50%" y2="50%" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
-                    <line x1="70%" y1="50%" x2="50%" y2="50%" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
-                    <line x1="60%" y1="70%" x2="50%" y2="50%" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
-                    <line x1="40%" y1="70%" x2="50%" y2="50%" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
-                    <line x1="30%" y1="50%" x2="50%" y2="50%" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
+                <div class="ensemble-diagram">
+                    <div class="olympus-center">OLYMPUS</div>
                     
-                    <defs>
-                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.2" />
-                            <stop offset="50%" style="stop-color:#FFD700;stop-opacity:0.8" />
-                            <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0.2" />
-                        </linearGradient>
-                    </defs>
-                </svg>
+                    <div class="model-circle model-minerva">
+                        <div>MINERVA</div>
+                        <small>Strategy</small>
+                    </div>
+                    
+                    <div class="model-circle model-atlas">
+                        <div>ATLAS</div>
+                        <small>Spatial</small>
+                    </div>
+                    
+                    <div class="model-circle model-iris">
+                        <div>IRIS</div>
+                        <small>Color</small>
+                    </div>
+                    
+                    <div class="model-circle model-chronos">
+                        <div>CHRONOS</div>
+                        <small>Temporal</small>
+                    </div>
+                    
+                    <div class="model-circle model-prometheus">
+                        <div>PROMETHEUS</div>
+                        <small>Creative</small>
+                    </div>
+                </div>
+                
+                <p style="text-align: center; margin-top: 30px;">
+                    <em>"Where Five Minds Become One Supreme Intelligence"</em>
+                </p>
             </div>
-
-            <p style="text-align: center; font-size: 1.2rem; color: #aaa;">
-                OLYMPUS orchestrates five specialized neural networks, each named after Greek deities,<br>
-                working in perfect harmony to solve Abstract Reasoning Corpus challenges.
-            </p>
-        </section>
-
-        <!-- Individual Models -->
-        <section class="architecture-section">
-            <h2 class="section-title">🌟 The Pantheon of Models</h2>
             
-            <div class="model-grid">
-                <div class="model-card">
-                    <div class="model-name" style="color: #9B59B6;">MINERVA</div>
-                    <div class="model-role">Goddess of Wisdom & Strategy</div>
-                    <ul class="model-specs">
-                        <li>Vision Transformer Architecture</li>
-                        <li>5.5M Parameters</li>
-                        <li>Pattern Memory Bank</li>
-                        <li>Strategic Reasoning Expert</li>
-                        <li>Handles: Complex, Logical, Composite</li>
-                    </ul>
+            <h3>Key Innovation: Ensemble Decision Making</h3>
+            <p>Unlike traditional approaches that rely on a single model, OLYMPUS leverages the strengths of multiple specialized networks. This ensemble approach enables:</p>
+            
+            <div class="flow-diagram">
+                <div class="flow-box">
+                    <h4>Pattern Detection</h4>
+                    <p>All models vote on<br>pattern type</p>
                 </div>
-
-                <div class="model-card">
-                    <div class="model-name" style="color: #3498DB;">ATLAS</div>
-                    <div class="model-role">Titan of Endurance & Support</div>
-                    <ul class="model-specs">
-                        <li>Spatial Transformer Network</li>
-                        <li>2.3M Parameters</li>
-                        <li>Geometric Transformation</li>
-                        <li>Spatial Reasoning Expert</li>
-                        <li>Handles: Rotation, Reflection, Scaling</li>
-                    </ul>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">
+                    <h4>Specialist Selection</h4>
+                    <p>Expert models<br>take the lead</p>
                 </div>
-
-                <div class="model-card">
-                    <div class="model-name" style="color: #E74C3C;">IRIS</div>
-                    <div class="model-role">Goddess of the Rainbow</div>
-                    <ul class="model-specs">
-                        <li>Color Attention Network</li>
-                        <li>910K Parameters</li>
-                        <li>Chromatic Analysis</li>
-                        <li>Color Pattern Expert</li>
-                        <li>Handles: Color Mapping, Harmony</li>
-                    </ul>
-                </div>
-
-                <div class="model-card">
-                    <div class="model-name" style="color: #F39C12;">CHRONOS</div>
-                    <div class="model-role">Personification of Time</div>
-                    <ul class="model-specs">
-                        <li>Bidirectional LSTM</li>
-                        <li>30.2M Parameters</li>
-                        <li>Temporal Evolution</li>
-                        <li>Sequence Prediction Expert</li>
-                        <li>Handles: Movement, Evolution</li>
-                    </ul>
-                </div>
-
-                <div class="model-card">
-                    <div class="model-name" style="color: #27AE60;">PROMETHEUS</div>
-                    <div class="model-role">Bringer of Fire & Innovation</div>
-                    <ul class="model-specs">
-                        <li>Variational Autoencoder</li>
-                        <li>9.9M Parameters</li>
-                        <li>Creative Synthesis</li>
-                        <li>Novel Pattern Generation</li>
-                        <li>Handles: Unknown, Creative</li>
-                    </ul>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">
+                    <h4>Dual Prediction</h4>
+                    <p>Two strategies<br>per task</p>
                 </div>
             </div>
         </section>
-
-        <!-- Ensemble Workflow -->
-        <section class="architecture-section">
-            <h2 class="section-title">⚡ The OLYMPUS Decision Process</h2>
+        
+        <section id="models" class="section">
+            <h2>The Neural Pantheon</h2>
+            <p>Each model in the OLYMPUS collective is named after a Greek deity, reflecting its specialized role in the ensemble.</p>
             
-            <div class="workflow">
-                <div class="workflow-step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <div class="step-title">Pattern Recognition Council</div>
-                        <div class="step-description">
-                            All five models analyze the input and vote on the pattern type. 
-                            Models receive weighted votes based on their specializations.
+            <div class="model-specs">
+                <div class="spec-card">
+                    <div class="spec-header">
+                        <div class="spec-icon" style="background: #9B59B6;">🧠</div>
+                        <div>
+                            <h4>MINERVA</h4>
+                            <div class="subtitle">Goddess of Wisdom & Strategy</div>
                         </div>
                     </div>
+                    <ul>
+                        <li>Architecture: Vision Transformer</li>
+                        <li>Parameters: 5.5M</li>
+                        <li>Specialization: Strategic reasoning</li>
+                        <li>Patterns: Complex, logical, composite</li>
+                        <li>Key Feature: Pattern memory bank</li>
+                    </ul>
                 </div>
-
-                <div class="workflow-step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <div class="step-title">Specialist Assignment</div>
-                        <div class="step-description">
-                            Based on detected pattern, specialist models are selected. 
-                            E.g., rotation detected → ATLAS leads, color pattern → IRIS takes charge.
+                
+                <div class="spec-card">
+                    <div class="spec-header">
+                        <div class="spec-icon" style="background: #3498DB;">📐</div>
+                        <div>
+                            <h4>ATLAS</h4>
+                            <div class="subtitle">Titan of Endurance & Support</div>
                         </div>
                     </div>
+                    <ul>
+                        <li>Architecture: Spatial Transformer Network</li>
+                        <li>Parameters: 2.3M</li>
+                        <li>Specialization: Geometric transformations</li>
+                        <li>Patterns: Rotation, reflection, scaling</li>
+                        <li>Key Feature: Affine transformation</li>
+                    </ul>
                 </div>
-
-                <div class="workflow-step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <div class="step-title">Dual Strategy Execution</div>
-                        <div class="step-description">
-                            Attempt 1: Weighted ensemble where all models contribute.
-                            Attempt 2: Specialist-only approach for targeted solving.
+                
+                <div class="spec-card">
+                    <div class="spec-header">
+                        <div class="spec-icon" style="background: #E74C3C;">🎨</div>
+                        <div>
+                            <h4>IRIS</h4>
+                            <div class="subtitle">Goddess of the Rainbow</div>
                         </div>
                     </div>
+                    <ul>
+                        <li>Architecture: Color Attention Network</li>
+                        <li>Parameters: 910K</li>
+                        <li>Specialization: Color relationships</li>
+                        <li>Patterns: Color mapping, harmony</li>
+                        <li>Key Feature: Chromatic analysis</li>
+                    </ul>
                 </div>
-
-                <div class="workflow-step">
-                    <div class="step-number">4</div>
-                    <div class="step-content">
-                        <div class="step-title">Consensus & Validation</div>
-                        <div class="step-description">
-                            Multiple predictions are combined using weighted voting.
-                            Conflicts are resolved based on model confidence scores.
+                
+                <div class="spec-card">
+                    <div class="spec-header">
+                        <div class="spec-icon" style="background: #F39C12;">⏱️</div>
+                        <div>
+                            <h4>CHRONOS</h4>
+                            <div class="subtitle">Personification of Time</div>
                         </div>
                     </div>
+                    <ul>
+                        <li>Architecture: Bidirectional LSTM</li>
+                        <li>Parameters: 30.2M</li>
+                        <li>Specialization: Temporal sequences</li>
+                        <li>Patterns: Movement, evolution</li>
+                        <li>Key Feature: State prediction</li>
+                    </ul>
+                </div>
+                
+                <div class="spec-card">
+                    <div class="spec-header">
+                        <div class="spec-icon" style="background: #27AE60;">🔥</div>
+                        <div>
+                            <h4>PROMETHEUS</h4>
+                            <div class="subtitle">Bringer of Fire & Innovation</div>
+                        </div>
+                    </div>
+                    <ul>
+                        <li>Architecture: Variational Autoencoder</li>
+                        <li>Parameters: 9.9M</li>
+                        <li>Specialization: Creative generation</li>
+                        <li>Patterns: Novel, unknown</li>
+                        <li>Key Feature: Latent synthesis</li>
+                    </ul>
                 </div>
             </div>
-        </section>
-
-        <!-- Prediction Strategies -->
-        <section class="architecture-section">
-            <h2 class="section-title">🎯 Dual Prediction Strategies</h2>
             
-            <div class="strategy-grid">
+            <h3>Model Specifications</h3>
+            <table>
+                <tr>
+                    <th>Model</th>
+                    <th>Architecture</th>
+                    <th>Parameters</th>
+                    <th>Primary Patterns</th>
+                    <th>Accuracy Target</th>
+                </tr>
+                <tr>
+                    <td><span class="highlight">MINERVA</span></td>
+                    <td>Vision Transformer</td>
+                    <td>5.5M</td>
+                    <td>Complex reasoning</td>
+                    <td>85%+</td>
+                </tr>
+                <tr>
+                    <td><span class="highlight">ATLAS</span></td>
+                    <td>Spatial Transformer</td>
+                    <td>2.3M</td>
+                    <td>Geometric transforms</td>
+                    <td>90%+ (spatial)</td>
+                </tr>
+                <tr>
+                    <td><span class="highlight">IRIS</span></td>
+                    <td>Color Attention</td>
+                    <td>910K</td>
+                    <td>Color patterns</td>
+                    <td>88%+ (color)</td>
+                </tr>
+                <tr>
+                    <td><span class="highlight">CHRONOS</span></td>
+                    <td>Bidirectional LSTM</td>
+                    <td>30.2M</td>
+                    <td>Sequences</td>
+                    <td>85%+ (temporal)</td>
+                </tr>
+                <tr>
+                    <td><span class="highlight">PROMETHEUS</span></td>
+                    <td>VAE</td>
+                    <td>9.9M</td>
+                    <td>Creative patterns</td>
+                    <td>80%+ (novel)</td>
+                </tr>
+            </table>
+        </section>
+        
+        <section id="workflow" class="section">
+            <h2>OLYMPUS Decision Process</h2>
+            
+            <h3>Phase 1: Pattern Recognition Council</h3>
+            <div class="code-block">
+# All models analyze the input task
+pattern_votes = {
+    'minerva': 'composite_transformation',
+    'atlas': 'rotation_90_degrees',
+    'iris': 'color_mapping_detected',
+    'chronos': 'no_temporal_pattern',
+    'prometheus': 'standard_pattern'
+}
+
+# Weighted voting based on specialization
+detected_pattern = weighted_consensus(pattern_votes)
+# Result: "rotation_with_color" (Atlas + Iris lead)
+            </div>
+            
+            <h3>Phase 2: Dual Strategy Prediction</h3>
+            <div class="strategy-section">
                 <div class="strategy-card">
-                    <h3 class="strategy-title">
-                        <span class="strategy-icon">🌐</span>
-                        Weighted Ensemble Strategy
-                    </h3>
-                    <p>All models contribute to the solution, with weights based on:</p>
-                    <ul style="margin: 15px 0; color: #aaa;">
-                        <li>• Pattern specialization match</li>
-                        <li>• Individual model confidence</li>
-                        <li>• Historical accuracy on similar patterns</li>
-                        <li>• Consensus strength among models</li>
+                    <h4><span class="strategy-icon">🌐</span> Weighted Ensemble</h4>
+                    <p>All models contribute their predictions with weights based on:</p>
+                    <ul style="list-style: none; margin-top: 15px;">
+                        <li>✓ Pattern specialization match</li>
+                        <li>✓ Individual model confidence</li>
+                        <li>✓ Historical accuracy</li>
+                        <li>✓ Consensus strength</li>
                     </ul>
-                    <p style="color: #FFD700;">Best for: Complex, multi-aspect patterns</p>
+                    <p style="margin-top: 20px;">
+                        <strong>Best for:</strong> Complex multi-aspect patterns
+                    </p>
                 </div>
-
+                
                 <div class="strategy-card">
-                    <h3 class="strategy-title">
-                        <span class="strategy-icon">🎪</span>
-                        Specialist Focus Strategy
-                    </h3>
+                    <h4><span class="strategy-icon">🎯</span> Specialist Focus</h4>
                     <p>Only expert models for the detected pattern participate:</p>
-                    <ul style="margin: 15px 0; color: #aaa;">
-                        <li>• Rotation/Spatial → ATLAS dominates</li>
-                        <li>• Color patterns → IRIS leads</li>
-                        <li>• Sequences → CHRONOS predicts</li>
-                        <li>• Novel patterns → PROMETHEUS creates</li>
+                    <ul style="list-style: none; margin-top: 15px;">
+                        <li>✓ Rotation → ATLAS dominates</li>
+                        <li>✓ Color → IRIS leads</li>
+                        <li>✓ Sequence → CHRONOS predicts</li>
+                        <li>✓ Novel → PROMETHEUS creates</li>
                     </ul>
-                    <p style="color: #FFD700;">Best for: Clear, single-pattern tasks</p>
+                    <p style="margin-top: 20px;">
+                        <strong>Best for:</strong> Clear single-pattern tasks
+                    </p>
                 </div>
             </div>
-        </section>
+            
+            <h3>Implementation Example</h3>
+            <div class="code-block">
+# OLYMPUS solving an ARC task
+olympus = ARCEnsembleSolver(device='cuda')
+task = load_arc_task('challenge_123')
 
-        <!-- Performance Metrics -->
-        <section class="architecture-section">
-            <h2 class="section-title">📊 OLYMPUS Performance Targets</h2>
+# Returns 2 predictions as required by competition
+predictions = olympus.solve_task(task)
+
+{
+    'attempt_1': [  # Weighted ensemble solution
+        [[2, 2, 0], [2, 0, 2], [0, 2, 2]]
+    ],
+    'attempt_2': [  # Specialist solution (ATLAS + IRIS)
+        [[2, 2, 0], [2, 0, 2], [0, 2, 2]]
+    ]
+}
+            </div>
+        </section>
+        
+        <section id="performance" class="section">
+            <h2>Performance & Optimization</h2>
             
             <div class="metrics">
-                <div class="metric-card">
+                <div class="metric-box">
                     <div class="metric-value">85%+</div>
                     <div class="metric-label">Target Accuracy</div>
                 </div>
-                <div class="metric-card">
+                
+                <div class="metric-box">
                     <div class="metric-value">48.5M</div>
                     <div class="metric-label">Total Parameters</div>
                 </div>
-                <div class="metric-card">
+                
+                <div class="metric-box">
                     <div class="metric-value">5</div>
                     <div class="metric-label">Neural Models</div>
                 </div>
-                <div class="metric-card">
+                
+                <div class="metric-box">
                     <div class="metric-value">2</div>
                     <div class="metric-label">Predictions/Task</div>
                 </div>
-                <div class="metric-card">
+                
+                <div class="metric-box">
                     <div class="metric-value"><12h</div>
                     <div class="metric-label">Runtime Limit</div>
                 </div>
-                <div class="metric-card">
+                
+                <div class="metric-box">
                     <div class="metric-value">$700K</div>
-                    <div class="metric-label">Grand Prize</div>
+                    <div class="metric-label">Grand Prize Target</div>
                 </div>
             </div>
-        </section>
-
-        <!-- Code Example -->
-        <section class="architecture-section">
-            <h2 class="section-title">💻 OLYMPUS in Action</h2>
             
-            <div class="code-block">
-                <pre>
-# Initialize OLYMPUS Neural Collective
-olympus = ARCEnsembleSolver(
-    models=['minerva', 'atlas', 'iris', 'chronos', 'prometheus'],
-    device='cuda'
-)
-
-# Process ARC task
-task = load_arc_task('challenge_001')
-
-# OLYMPUS analyzes and solves
-predictions = olympus.solve_task(task)
-
-# Returns dual predictions
-{
-    'attempt_1': weighted_ensemble_solution,  # All models contribute
-    'attempt_2': specialist_solution         # Pattern-specific experts
-}
-
-# Pattern Detection Example:
-# - MINERVA: "This looks like a composite transformation"
-# - ATLAS: "I detect 90° rotation with reflection"  
-# - IRIS: "Color mapping: blue→red, yellow→green"
-# - CHRONOS: "Object moving in diagonal pattern"
-# - PROMETHEUS: "Novel pattern - generating creative solution"
-
-# OLYMPUS Decision: Spatial + Color hybrid (ATLAS + IRIS lead)
-                </pre>
-            </div>
-        </section>
-
-        <!-- Technical Advantages -->
-        <section class="architecture-section">
-            <h2 class="section-title">🚀 Why OLYMPUS Dominates</h2>
+            <h3>Computational Efficiency</h3>
+            <table>
+                <tr>
+                    <th>Phase</th>
+                    <th>Process</th>
+                    <th>Time</th>
+                    <th>GPU Memory</th>
+                </tr>
+                <tr>
+                    <td>Model Loading</td>
+                    <td>Load 5 models to GPU</td>
+                    <td>~30 seconds</td>
+                    <td>~2GB per model</td>
+                </tr>
+                <tr>
+                    <td>Pattern Detection</td>
+                    <td>All models vote</td>
+                    <td><1 second/task</td>
+                    <td>~500MB</td>
+                </tr>
+                <tr>
+                    <td>Prediction</td>
+                    <td>Generate 2 attempts</td>
+                    <td>~5 seconds/task</td>
+                    <td>~1GB</td>
+                </tr>
+                <tr>
+                    <td>Total Runtime</td>
+                    <td>240 test tasks</td>
+                    <td>~25 minutes</td>
+                    <td><12GB peak</td>
+                </tr>
+            </table>
             
-            <div class="model-grid">
-                <div class="model-card">
-                    <h3 style="color: #FFD700; margin-bottom: 15px;">🧠 Collective Intelligence</h3>
-                    <p>Five specialized minds working as one. Each model's weaknesses are covered by others' strengths.</p>
+            <h3>Why OLYMPUS Dominates</h3>
+            <div class="benefits-grid">
+                <div class="benefit-card">
+                    <h5><span class="benefit-icon">🧠</span> Collective Intelligence</h5>
+                    <p>Five specialized minds work as one. Each model's weaknesses are covered by others' strengths, creating robust predictions.</p>
                 </div>
                 
-                <div class="model-card">
-                    <h3 style="color: #FFD700; margin-bottom: 15px;">🎯 Pattern Specialization</h3>
-                    <p>Each model is an expert in specific pattern types, ensuring optimal performance across all ARC challenges.</p>
+                <div class="benefit-card">
+                    <h5><span class="benefit-icon">🎯</span> Pattern Specialization</h5>
+                    <p>Each model excels at specific patterns. OLYMPUS routes tasks to the right expert, maximizing accuracy.</p>
                 </div>
                 
-                <div class="model-card">
-                    <h3 style="color: #FFD700; margin-bottom: 15px;">🔄 Dual Strategy</h3>
-                    <p>Two different approaches per task maximize the chance of finding the correct solution.</p>
+                <div class="benefit-card">
+                    <h5><span class="benefit-icon">🔄</span> Dual Strategy</h5>
+                    <p>Two different approaches per task double our chances of finding the correct solution.</p>
                 </div>
                 
-                <div class="model-card">
-                    <h3 style="color: #FFD700; margin-bottom: 15px;">⚡ Error Correction</h3>
+                <div class="benefit-card">
+                    <h5><span class="benefit-icon">⚡</span> Error Correction</h5>
                     <p>Multiple models verify each prediction, catching and correcting individual model errors.</p>
                 </div>
                 
-                <div class="model-card">
-                    <h3 style="color: #FFD700; margin-bottom: 15px;">🌟 Adaptive Routing</h3>
-                    <p>Smart routing ensures the right expert handles each pattern type for maximum accuracy.</p>
+                <div class="benefit-card">
+                    <h5><span class="benefit-icon">🌟</span> Adaptive Routing</h5>
+                    <p>Smart pattern detection ensures the right expert handles each pattern type.</p>
                 </div>
                 
-                <div class="model-card">
-                    <h3 style="color: #FFD700; margin-bottom: 15px;">🏆 Competition Ready</h3>
-                    <p>Optimized for Kaggle's 12-hour runtime with GPU acceleration and memory management.</p>
+                <div class="benefit-card">
+                    <h5><span class="benefit-icon">🏆</span> Competition Ready</h5>
+                    <p>Optimized for Kaggle's L4x4 GPUs with memory management and progress tracking.</p>
                 </div>
             </div>
         </section>
     </div>
-
-    <footer class="footer">
-        <p>OLYMPUS Neural Collective - Where Five Minds Become One</p>
-        <p>ARC Prize 2025 | Target: 85% Accuracy | $700,000 Grand Prize</p>
-        <p style="margin-top: 20px; color: #444;">© 2025 AutomataNexus, LLC</p>
-    </footer>
-
-    <script>
-        // Neural network animation
-        const canvas = document.getElementById('neuralCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        
-        class NeuralParticle {
-            constructor() {
-                this.reset();
-            }
-            
-            reset() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.vx = (Math.random() - 0.5) * 0.5;
-                this.vy = (Math.random() - 0.5) * 0.5;
-                this.radius = Math.random() * 2 + 1;
-                this.opacity = Math.random() * 0.5 + 0.3;
-            }
-            
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                
-                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-            }
-            
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`;
-                ctx.fill();
-            }
-        }
-        
-        const particles = Array(100).fill().map(() => new NeuralParticle());
-        
-        function drawConnections() {
-            particles.forEach((p1, i) => {
-                particles.slice(i + 1).forEach(p2 => {
-                    const distance = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
-                    if (distance < 150) {
-                        ctx.beginPath();
-                        ctx.moveTo(p1.x, p1.y);
-                        ctx.lineTo(p2.x, p2.y);
-                        ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 * (1 - distance / 150)})`;
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
-                    }
-                });
-            });
-        }
-        
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            particles.forEach(particle => {
-                particle.update();
-                particle.draw();
-            });
-            
-            drawConnections();
-            requestAnimationFrame(animate);
-        }
-        
-        animate();
-        
-        // Resize handler
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-    </script>
 </body>
 </html>

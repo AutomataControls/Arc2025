@@ -342,7 +342,9 @@ def train_enhanced_models():
                 
                 # Forward pass
                 if model_name == 'chronos':
-                    outputs = model([input_grids], output_grids)
+                    # CHRONOS expects a list of tensors for sequence processing
+                    # For training, we'll pass single frames
+                    outputs = model([input_grids])
                 else:
                     outputs = model(input_grids, output_grids, mode='train')
                 
