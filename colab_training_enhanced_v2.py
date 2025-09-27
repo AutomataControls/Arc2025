@@ -4,7 +4,7 @@
 # Install packages
 import subprocess
 import sys
-subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "torchvision", "matplotlib", "numpy", "pandas", "tqdm", "onnx", "onnxruntime", "plotly", "scikit-learn", "-q"])
+subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "torchvision", "matplotlib", "numpy", "pandas", "tqdm", "onnx", "onnxruntime", "plotly", "scikit-learn", "albumentations", "-q"])
 print("✓ Packages installed")
 
 # Imports
@@ -16,6 +16,9 @@ from torch.utils.data import Dataset, DataLoader, random_split
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+from torchvision.transforms import v2 as transforms_v2
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 import os
 import shutil
@@ -97,11 +100,13 @@ print(f"✓ Dataset location: {DATA_DIR}")
 class ARCDatasetEnhancedV2(Dataset):
     """Enhanced dataset with better augmentation strategies"""
     
-    def __init__(self, data_dir: str, split: str = 'train'):
+    def __init__(self, data_dir: str, split: str = 'train', use_albumentations: bool = True):
         self.data_dir = data_dir
         self.split = split
         self.samples = []
         self.pattern_labels = []
+        self._use_albumentations = use_albumentations
+        self._setup_albumentations()
         self._load_data()
         
     def _load_data(self):
@@ -203,19 +208,56 @@ class ARCDatasetEnhancedV2(Dataset):
                 })
                 augmented_labels.append(self.pattern_labels[idx])
             
-            # NEW: Color permutation augmentation (inspired by winning solution)
+            # NEW: Advanced color augmentation using torchvision v2
             if len(np.unique(input_grid)) <= 5:  # Only for grids with few colors
-                for _ in range(5):  # Generate 5 color permutations with 80GB GPU
-                    # Create color mapping
-                    unique_colors = list(np.unique(np.concatenate([input_grid.flatten(), output_grid.flatten()])))
-                    color_perm = np.random.permutation(10)
+                # Convert to tensor for augmentation
+                input_tensor = torch.from_numpy(input_grid).float().unsqueeze(0)
+                output_tensor = torch.from_numpy(output_grid).float().unsqueeze(0)
+                
+                for aug_idx in range(5):  # Generate 5 augmentations with 80GB GPU
+                    # Method 1: Channel permutation
+                    if aug_idx < 3:
+                        # Create different channel permutations
+                        perms = [[2, 0, 1], [1, 2, 0], [2, 1, 0]]
+                        if aug_idx < len(perms):
+                            perm = perms[aug_idx]
+                            # Apply channel permutation (treating each color as a channel)
+                            aug_input_t = input_tensor
+                            aug_output_t = output_tensor
+                            
+                            # Create color mapping based on permutation
+                            color_perm = np.zeros(10, dtype=int)
+                            unique_colors = np.unique(np.concatenate([input_grid.flatten(), output_grid.flatten()]))
+                            for i, color in enumerate(unique_colors[:len(perm)]):
+                                if i < len(perm):
+                                    color_perm[int(color)] = unique_colors[perm[i] % len(unique_colors)]
+                            
+                            aug_input = self._apply_color_mapping(input_grid, color_perm)
+                            aug_output = self._apply_color_mapping(output_grid, color_perm)
                     
-                    # Apply permutation
-                    aug_input = self._apply_color_mapping(input_grid, color_perm)
-                    aug_output = self._apply_color_mapping(output_grid, color_perm)
+                    # Method 2: ColorJitter-inspired random mapping
+                    else:
+                        # Random but consistent color remapping
+                        unique_colors = np.unique(np.concatenate([input_grid.flatten(), output_grid.flatten()]))
+                        color_map = {}
+                        available_colors = list(range(10))
+                        np.random.shuffle(available_colors)
+                        
+                        for i, color in enumerate(unique_colors):
+                            if i < len(available_colors):
+                                color_map[color] = available_colors[i]
+                            else:
+                                color_map[color] = color
+                        
+                        aug_input = np.zeros_like(input_grid)
+                        aug_output = np.zeros_like(output_grid)
+                        
+                        for old_color, new_color in color_map.items():
+                            aug_input[input_grid == old_color] = new_color
+                            aug_output[output_grid == old_color] = new_color
                     
                     augmented.append({
-                        'task_id': sample['task_id'] + f'_colorperm{_}',
+                        'task_id': sample['task_id'] + f'_coloraug{aug_idx}',
                         'input': aug_input,
                         'output': aug_output,
                         'type': 'augmented'
@@ -224,7 +266,14 @@ class ARCDatasetEnhancedV2(Dataset):
         
         self.samples.extend(augmented)
         self.pattern_labels.extend(augmented_labels)
-        print(f"Added {len(augmented)} augmented samples (including color permutations)")
+        print(f"Added {len(augmented)} augmented samples (including advanced color augmentations)")
+        
+        # Add Albumentations-based augmentations for complex patterns
+        if hasattr(self, '_use_albumentations') and self._use_albumentations:
+            albu_augmented = self._apply_albumentations_augment()
+            self.samples.extend(albu_augmented['samples'])
+            self.pattern_labels.extend(albu_augmented['labels'])
+            print(f"Added {len(albu_augmented['samples'])} Albumentations samples")
     
     def _apply_color_mapping(self, grid: np.ndarray, perm: np.ndarray) -> np.ndarray:
         """Apply color permutation to grid"""
@@ -234,6 +283,171 @@ class ARCDatasetEnhancedV2(Dataset):
             if mask.any():
                 new_grid[mask] = perm[old_color]
         return new_grid
+    
+    def _apply_advanced_augmentation(self, input_grid: np.ndarray, output_grid: np.ndarray) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """Apply advanced augmentations using torchvision v2"""
+        augmented_pairs = []
+        
+        # Convert to 3-channel format for torchvision (H, W) -> (3, H, W)
+        h, w = input_grid.shape
+        
+        # Create pseudo-RGB by mapping colors to channels
+        input_rgb = np.zeros((3, h, w))
+        output_rgb = np.zeros((3, h, w))
+        
+        # Map first 3 colors to RGB channels
+        for c in range(min(3, 10)):
+            input_rgb[c % 3][input_grid == c] = 1.0
+            output_rgb[c % 3][output_grid == c] = 1.0
+        
+        # Convert to tensor
+        input_tensor = torch.from_numpy(input_rgb).float()
+        output_tensor = torch.from_numpy(output_rgb).float()
+        
+        # Define augmentation pipeline
+        color_augmentations = [
+            transforms_v2.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+            transforms_v2.RandomInvert(p=1.0),
+            transforms_v2.RandomSolarize(threshold=0.5, p=1.0),
+        ]
+        
+        for aug in color_augmentations:
+            # Apply same augmentation to both input and output
+            aug_input_tensor = aug(input_tensor)
+            aug_output_tensor = aug(output_tensor)
+            
+            # Convert back to grid format
+            aug_input = self._tensor_to_grid(aug_input_tensor, input_grid)
+            aug_output = self._tensor_to_grid(aug_output_tensor, output_grid)
+            
+            augmented_pairs.append((aug_input, aug_output))
+        
+        return augmented_pairs
+    
+    def _tensor_to_grid(self, tensor: torch.Tensor, original_grid: np.ndarray) -> np.ndarray:
+        """Convert augmented tensor back to grid format"""
+        # Simple thresholding to recover discrete colors
+        tensor_np = tensor.numpy()
+        h, w = original_grid.shape
+        grid = np.zeros((h, w), dtype=int)
+        
+        # Find dominant channel for each pixel
+        for i in range(h):
+            for j in range(w):
+                if tensor_np[:, i, j].max() > 0.5:
+                    grid[i, j] = tensor_np[:, i, j].argmax()
+                else:
+                    grid[i, j] = original_grid[i, j]  # Fallback to original
+        
+        return grid
+    
+    def _setup_albumentations(self):
+        """Setup Albumentations transforms for ARC grids"""
+        if not self._use_albumentations:
+            return
+        
+        # Create different augmentation pipelines
+        self.albu_transforms = {
+            'color_shift': A.Compose([
+                A.RGBShift(r_shift_limit=50, g_shift_limit=50, b_shift_limit=50, p=1.0),
+                A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=1.0),
+            ]),
+            'channel_ops': A.Compose([
+                A.ChannelShuffle(p=1.0),
+            ]),
+            'advanced': A.Compose([
+                A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.5),
+                A.RandomToneCurve(scale=0.1, p=0.5),
+                A.Posterize(num_bits=4, p=0.5),
+            ])
+        }
+    
+    def _apply_albumentations_augment(self) -> Dict[str, List]:
+        """Apply Albumentations augmentations to existing samples"""
+        albu_samples = []
+        albu_labels = []
+        
+        # Only augment a subset to avoid explosion
+        subset_size = min(100, len(self.samples) // 10)
+        indices = np.random.choice(len(self.samples), subset_size, replace=False)
+        
+        for idx in indices:
+            sample = self.samples[idx]
+            input_grid = sample['input']
+            output_grid = sample['output']
+            
+            # Skip if grids are too large
+            if input_grid.shape[0] > 20 or input_grid.shape[1] > 20:
+                continue
+            
+            # Convert to uint8 RGB format for Albumentations
+            input_rgb = self._grid_to_rgb(input_grid)
+            output_rgb = self._grid_to_rgb(output_grid)
+            
+            # Apply each transform type
+            for transform_name, transform in self.albu_transforms.items():
+                # Apply same transform to both input and output
+                aug_result_input = transform(image=input_rgb)
+                aug_result_output = transform(image=output_rgb)
+                
+                # Convert back to grid
+                aug_input = self._rgb_to_grid(aug_result_input['image'], input_grid)
+                aug_output = self._rgb_to_grid(aug_result_output['image'], output_grid)
+                
+                albu_samples.append({
+                    'task_id': sample['task_id'] + f'_albu_{transform_name}',
+                    'input': aug_input,
+                    'output': aug_output,
+                    'type': 'albu_augmented'
+                })
+                albu_labels.append(self.pattern_labels[idx])
+        
+        return {'samples': albu_samples, 'labels': albu_labels}
+    
+    def _grid_to_rgb(self, grid: np.ndarray) -> np.ndarray:
+        """Convert ARC grid to RGB format for Albumentations"""
+        h, w = grid.shape
+        rgb = np.zeros((h, w, 3), dtype=np.uint8)
+        
+        # Create a color palette (10 distinct colors)
+        palette = np.array([
+            [0, 0, 0],      # 0: Black
+            [255, 0, 0],    # 1: Red
+            [0, 255, 0],    # 2: Green
+            [0, 0, 255],    # 3: Blue
+            [255, 255, 0],  # 4: Yellow
+            [255, 0, 255],  # 5: Magenta
+            [0, 255, 255],  # 6: Cyan
+            [255, 128, 0],  # 7: Orange
+            [128, 0, 255],  # 8: Purple
+            [128, 128, 128] # 9: Gray
+        ], dtype=np.uint8)
+        
+        for i in range(h):
+            for j in range(w):
+                color_idx = int(grid[i, j]) % 10
+                rgb[i, j] = palette[color_idx]
+        
+        return rgb
+    
+    def _rgb_to_grid(self, rgb: np.ndarray, original_grid: np.ndarray) -> np.ndarray:
+        """Convert RGB back to ARC grid format"""
+        h, w = original_grid.shape
+        grid = np.zeros((h, w), dtype=int)
+        
+        # Use nearest neighbor matching to recover colors
+        palette = np.array([
+            [0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
+            [255, 0, 255], [0, 255, 255], [255, 128, 0], [128, 0, 255], [128, 128, 128]
+        ], dtype=np.float32)
+        
+        for i in range(h):
+            for j in range(w):
+                pixel = rgb[i, j].astype(np.float32)
+                distances = np.sum((palette - pixel) ** 2, axis=1)
+                grid[i, j] = np.argmin(distances)
+        
+        return grid
     
     def __len__(self):
         return len(self.samples)
