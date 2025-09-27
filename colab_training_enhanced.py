@@ -405,7 +405,7 @@ def train_enhanced_models():
                     output_grids = batch['output'].to(DEVICE)
                     
                     # Mixed precision forward pass
-                    with autocast():
+                    with autocast('cuda'):
                         # Forward pass
                         if model_name == 'chronos':
                             outputs = model([input_grids])
