@@ -21,10 +21,12 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 # Import improved accuracy metrics
-sys.path.append('/content/Arc2025')
 try:
-    from improved_accuracy_metrics import ARCAccuracyMetrics
+    from Arc2025.improved_accuracy_metrics import ARCAccuracyMetrics
 except:
+    try:
+        from improved_accuracy_metrics import ARCAccuracyMetrics
+    except:
     # Inline definition if import fails
     class ARCAccuracyMetrics:
         @staticmethod
@@ -83,14 +85,33 @@ os.system("git clone https://github.com/AutomataControls/Arc2025.git")
 os.system("cd Arc2025 && git pull")
 print("✓ Repository cloned and updated")
 
+# Check what's in the repo
+print("\n📁 Repository structure:")
+os.system("ls -la Arc2025/")
+print("\n📁 Models directory:")
+os.system("ls -la Arc2025/models/")
+
 # Add to path
 sys.path.append('/content/Arc2025')
+sys.path.append('/content')
 
-# Import enhanced models
-from Arc2025.models.arc_models_enhanced import create_enhanced_models
+# Try different import paths
+try:
+    from Arc2025.models.arc_models_enhanced import create_enhanced_models
+except:
+    try:
+        # Maybe models is at root level
+        from Arc2025.arc_models_enhanced import create_enhanced_models
+    except:
+        # Try direct import
+        sys.path.append('/content/Arc2025/models')
+        from arc_models_enhanced import create_enhanced_models
 
-# Import monitor
-from Arc2025.colab_monitor_integration import setup_colab_monitor
+# Import monitor with similar fallback
+try:
+    from Arc2025.colab_monitor_integration import setup_colab_monitor
+except:
+    from colab_monitor_integration import setup_colab_monitor
 
 # Enable mixed precision training for A100
 from torch.amp import GradScaler, autocast
@@ -103,7 +124,10 @@ try:
     del test_models
 except Exception as e:
     print(f"❌ Error loading models: {e}")
-    raise
+    print("Attempting to download model file directly...")
+    os.system("wget -q https://raw.githubusercontent.com/AutomataControls/Arc2025/main/models/arc_models_enhanced.py -O /content/arc_models_enhanced.py")
+    from arc_models_enhanced import create_enhanced_models
+    print("✓ Models loaded from direct download")
 
 # Hyperparameters - OPTIMIZED FOR A100 80GB!
 BATCH_SIZE = 256  # Massive batch size for A100 80GB
@@ -128,7 +152,18 @@ print(f"  Device: {DEVICE}")
 
 # Data is already in the cloned repo
 print("\n📊 Using ARC dataset from cloned repository...")
-DATA_DIR = '/content/Arc2025/data'
+# Check if data exists in different locations
+if os.path.exists('/content/Arc2025/data'):
+    DATA_DIR = '/content/Arc2025/data'
+elif os.path.exists('/content/data'):
+    DATA_DIR = '/content/data'
+else:
+    # Download data if not found
+    print("Data not found in repo, downloading...")
+    os.makedirs('/content/data', exist_ok=True)
+    os.system("wget -q https://github.com/fchollet/ARC-AGI/raw/master/data/training/arc-agi_training_challenges.json -O /content/data/arc-agi_training_challenges.json")
+    os.system("wget -q https://github.com/fchollet/ARC-AGI/raw/master/data/training/arc-agi_training_solutions.json -O /content/data/arc-agi_training_solutions.json")
+    DATA_DIR = '/content/data'
 print(f"✓ Dataset location: {DATA_DIR}")
 
 class ARCDatasetEnhancedV2(Dataset):
@@ -894,7 +929,8 @@ def train_enhanced_models_v2():
     
     # Save enhanced inference engine
     print("\n📤 Saving enhanced inference system...")
-    os.system("cp /content/Arc2025/enhanced_inference_system.py /content/arc_models/")
+    if os.path.exists('/content/Arc2025/enhanced_inference_system.py'):
+        os.system("cp /content/Arc2025/enhanced_inference_system.py /content/arc_models/")
     
     # Plot final results
     plot_enhanced_results(training_history)
