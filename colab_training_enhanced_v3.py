@@ -558,6 +558,17 @@ def train_enhanced_models_v3():
                         outputs = model(input_grids, output_grids, mode='train')
                     
                     pred_output = outputs['predicted_output']
+                    
+                    # CRITICAL: Check output shape and add debugging
+                    if pred_output.dim() != 4 or pred_output.shape[1] != 10:
+                        print(f"ERROR: Invalid output shape {pred_output.shape} for {model_name}")
+                        pred_output = torch.zeros(input_grids.shape).to(DEVICE)
+                    
+                    # Debug: check if outputs are reasonable
+                    if epoch == 0 and train_steps == 0:
+                        print(f"\nDEBUG {model_name}: output range [{pred_output.min():.3f}, {pred_output.max():.3f}]")
+                        print(f"Output shape: {pred_output.shape}, Input shape: {input_grids.shape}")
+                    
                     losses = loss_fn(pred_output, output_grids)
                     loss = losses['total'] / GRADIENT_ACCUMULATION_STEPS
                 
@@ -602,6 +613,13 @@ def train_enhanced_models_v3():
                             outputs = model(input_grids)
                         
                         pred_output = outputs['predicted_output']
+                        
+                        # CRITICAL FIX: Ensure proper shape and no activation
+                        # The models output raw logits, loss function expects them
+                        if pred_output.dim() != 4 or pred_output.shape[1] != 10:
+                            print(f"WARNING: Invalid output shape {pred_output.shape}")
+                            pred_output = torch.zeros(input_grids.shape).to(DEVICE)
+                        
                         losses = loss_fn(pred_output, output_grids)
                     
                     val_loss += losses['total'].item()
