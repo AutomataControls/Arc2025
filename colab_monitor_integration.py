@@ -125,7 +125,7 @@ class ColabTrainingMonitor:
                     'value': 85
                 }
             },
-            title = {'text': f"Best: {max(best_models, key=lambda x: x[1])[0].upper()}"}
+            title = {'text': f"Best: {max(best_models, key=lambda x: x[1])[0].upper()} | Target: $700K"}
         ), row=2, col=2)
         
         # Update layout
@@ -164,6 +164,11 @@ class ColabTrainingMonitor:
         for i, (model, score) in enumerate(rankings, 1):
             status = "🏆 PRIZE ELIGIBLE" if score >= 0.85 else f"{(0.85-score)*100:.1f}% to go"
             print(f"{i}. {model.upper()}: {score*100:.2f}% - {status}")
+        
+        # Show improvement from baseline
+        best_current = rankings[0][1] * 100
+        improvement = best_current - 70  # 70% was our baseline
+        print(f"\nImprovement from baseline: +{improvement:.1f}% (was 70%, now {best_current:.1f}%)")
         
         # Estimate time to 85%
         if rankings[0][1] < 0.85:
