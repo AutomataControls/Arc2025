@@ -69,12 +69,10 @@ print(f"  Epochs: {NUM_EPOCHS}")
 print(f"  Max grid size: {MAX_GRID_SIZE}")
 print(f"  Device: {DEVICE}")
 
-# Download ARC data
-print("\n📊 Downloading ARC dataset...")
-os.system("mkdir -p /content/data")
-os.system("wget -q https://lab42.global/files/arc-agi_training_challenges.json -O /content/data/arc-agi_training_challenges.json")
-os.system("wget -q https://lab42.global/files/arc-agi_training_solutions.json -O /content/data/arc-agi_training_solutions.json")
-print("✓ Dataset downloaded")
+# Data is already in the cloned repo
+print("\n📊 Using ARC dataset from cloned repository...")
+DATA_DIR = '/content/Arc2025/data'
+print(f"✓ Dataset location: {DATA_DIR}")
 
 class ARCDatasetEnhanced(Dataset):
     """Enhanced dataset that returns both input and output grids"""
@@ -279,7 +277,7 @@ def train_enhanced_models():
     monitor = setup_colab_monitor()
     
     # Create dataset
-    dataset = ARCDatasetEnhanced('/content/data', split='train')
+    dataset = ARCDatasetEnhanced(DATA_DIR, split='train')
     train_size = int(0.9 * len(dataset))
     val_size = len(dataset) - train_size
     
