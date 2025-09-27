@@ -1,0 +1,715 @@
+"""
+Enhanced ARC Models - Breaking the 70% Barrier
+These models include critical improvements for ARC reasoning
+"""
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from typing import Dict, List, Tuple, Optional
+
+
+class GridAttention(nn.Module):
+    """Grid-aware attention mechanism for ARC tasks"""
+    def __init__(self, channels: int, grid_size: int = 30):
+        super().__init__()
+        self.channels = channels
+        self.grid_size = grid_size
+        
+        # Learnable position embeddings for grid
+        self.row_embed = nn.Parameter(torch.randn(grid_size, channels // 2))
+        self.col_embed = nn.Parameter(torch.randn(grid_size, channels // 2))
+        
+        # Multi-head attention
+        self.attention = nn.MultiheadAttention(channels, num_heads=8, batch_first=True)
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, C, H, W = x.shape
+        
+        # Add positional embeddings
+        row_emb = self.row_embed[:H, :].unsqueeze(1).expand(-1, W, -1)
+        col_emb = self.col_embed[:W, :].unsqueeze(0).expand(H, -1, -1)
+        pos_emb = torch.cat([row_emb, col_emb], dim=-1).permute(2, 0, 1).unsqueeze(0)
+        
+        # Apply attention with position awareness
+        x_flat = x.view(B, C, -1).permute(0, 2, 1)  # B, H*W, C
+        x_with_pos = x_flat + pos_emb.expand(B, -1, H*W, -1).reshape(B, H*W, C)
+        
+        attended, _ = self.attention(x_with_pos, x_with_pos, x_with_pos)
+        return attended.permute(0, 2, 1).view(B, C, H, W)
+
+
+class ObjectEncoder(nn.Module):
+    """Extract and encode objects from grids"""
+    def __init__(self, in_channels: int = 10, hidden_dim: int = 128):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels, 32, 3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.conv3 = nn.Conv2d(64, hidden_dim, 1)
+        
+        # Object detection head
+        self.object_conv = nn.Conv2d(hidden_dim, 1, 1)
+        
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Extract features
+        h = F.relu(self.conv1(x))
+        h = F.relu(self.conv2(h))
+        features = self.conv3(h)
+        
+        # Detect objects
+        object_masks = torch.sigmoid(self.object_conv(features))
+        
+        # Masked features
+        object_features = features * object_masks
+        
+        return object_features, object_masks
+
+
+class RelationalReasoning(nn.Module):
+    """Reason about relationships between grid elements"""
+    def __init__(self, feature_dim: int):
+        super().__init__()
+        self.feature_dim = feature_dim
+        
+        # Relation network
+        self.relation_net = nn.Sequential(
+            nn.Linear(feature_dim * 2, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, feature_dim)
+        )
+        
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        B, C, H, W = features.shape
+        
+        # Flatten spatial dimensions
+        features_flat = features.view(B, C, -1).permute(0, 2, 1)  # B, H*W, C
+        N = features_flat.shape[1]
+        
+        # Compute pairwise relations
+        features_i = features_flat.unsqueeze(2).expand(-1, -1, N, -1)
+        features_j = features_flat.unsqueeze(1).expand(-1, N, -1, -1)
+        
+        # Concatenate pairs
+        pairs = torch.cat([features_i, features_j], dim=-1)
+        
+        # Compute relations
+        relations = self.relation_net(pairs.view(B * N * N, -1))
+        relations = relations.view(B, N, N, C)
+        
+        # Aggregate relations
+        aggregated = relations.mean(dim=2)  # B, N, C
+        
+        return aggregated.permute(0, 2, 1).view(B, C, H, W)
+
+
+class TransformationPredictor(nn.Module):
+    """Learn to predict transformations from examples"""
+    def __init__(self, feature_dim: int):
+        super().__init__()
+        
+        # Encode input-output pairs
+        self.pair_encoder = nn.Sequential(
+            nn.Linear(feature_dim * 2, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256)
+        )
+        
+        # Predict transformation parameters
+        self.transform_head = nn.Sequential(
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128)
+        )
+        
+    def forward(self, input_features: torch.Tensor, output_features: torch.Tensor) -> torch.Tensor:
+        # Global pooling
+        input_global = F.adaptive_avg_pool2d(input_features, 1).squeeze(-1).squeeze(-1)
+        output_global = F.adaptive_avg_pool2d(output_features, 1).squeeze(-1).squeeze(-1)
+        
+        # Encode transformation
+        pair_features = torch.cat([input_global, output_global], dim=1)
+        encoded = self.pair_encoder(pair_features)
+        
+        # Predict transformation
+        transform_params = self.transform_head(encoded)
+        
+        return transform_params
+
+
+class EnhancedMinervaNet(nn.Module):
+    """Enhanced MINERVA with grid reasoning capabilities"""
+    def __init__(self, max_grid_size: int = 30, hidden_dim: int = 256):
+        super().__init__()
+        self.max_grid_size = max_grid_size
+        self.hidden_dim = hidden_dim
+        
+        # Grid encoder with object awareness
+        self.object_encoder = ObjectEncoder(10, hidden_dim)
+        
+        # Grid attention
+        self.grid_attention = GridAttention(hidden_dim, max_grid_size)
+        
+        # Relational reasoning
+        self.relational = RelationalReasoning(hidden_dim)
+        
+        # Transformation learning
+        self.transform_predictor = TransformationPredictor(hidden_dim)
+        
+        # Memory bank for pattern storage
+        self.pattern_memory = nn.Parameter(torch.randn(100, hidden_dim))
+        
+        # Output decoder - predicts actual output grid
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(hidden_dim * 2, 128, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 10, 1)  # 10 colors
+        )
+        
+        self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
+        
+    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None, 
+                mode: str = 'train') -> Dict[str, torch.Tensor]:
+        
+        # Extract object features
+        input_features, input_objects = self.object_encoder(input_grid)
+        
+        # Apply grid attention
+        attended_features = self.grid_attention(input_features)
+        
+        # Relational reasoning
+        relational_features = self.relational(attended_features)
+        
+        # Combine features
+        combined_features = attended_features + relational_features
+        
+        if mode == 'train' and output_grid is not None:
+            # Learn transformation
+            output_features, _ = self.object_encoder(output_grid)
+            transform_params = self.transform_predictor(combined_features, output_features)
+            
+            # Apply transformation to predict output
+            transformed = self._apply_transform(combined_features, transform_params)
+            predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
+            
+            return {
+                'predicted_output': predicted_output,
+                'transform_params': transform_params,
+                'object_masks': input_objects,
+                'features': combined_features
+            }
+        else:
+            # Inference mode - find best matching pattern
+            best_transform = self._find_best_pattern(combined_features)
+            transformed = self._apply_transform(combined_features, best_transform)
+            predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
+            
+            return {
+                'predicted_output': predicted_output,
+                'transform_params': best_transform,
+                'object_masks': input_objects
+            }
+    
+    def _apply_transform(self, features: torch.Tensor, transform_params: torch.Tensor) -> torch.Tensor:
+        """Apply learned transformation to features"""
+        B, C, H, W = features.shape
+        
+        # Use transform params to modulate features
+        transform_matrix = transform_params.view(B, -1, 1, 1)
+        
+        # Simple version - enhance this with actual transformations
+        transformed = features * transform_matrix[:, :C, :, :]
+        
+        return transformed
+    
+    def _find_best_pattern(self, features: torch.Tensor) -> torch.Tensor:
+        """Find best matching pattern from memory"""
+        B = features.shape[0]
+        
+        # Compare with pattern memory
+        features_pooled = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)
+        similarity = F.cosine_similarity(features_pooled.unsqueeze(1), self.pattern_memory.unsqueeze(0), dim=2)
+        
+        # Get best matches
+        best_idx = similarity.argmax(dim=1)
+        best_patterns = self.pattern_memory[best_idx]
+        
+        return best_patterns
+
+
+class EnhancedAtlasNet(nn.Module):
+    """Enhanced ATLAS with better spatial transformation learning"""
+    def __init__(self, max_grid_size: int = 30):
+        super().__init__()
+        self.max_grid_size = max_grid_size
+        
+        # Feature extraction
+        self.encoder = nn.Sequential(
+            nn.Conv2d(10, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.ReLU()
+        )
+        
+        # Spatial transformer network
+        self.localization = nn.Sequential(
+            nn.Conv2d(128, 64, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 32, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(4)
+        )
+        
+        # Affine transformation parameters
+        self.fc_loc = nn.Sequential(
+            nn.Linear(32 * 4 * 4, 128),
+            nn.ReLU(),
+            nn.Linear(128, 6)  # 2x3 affine matrix
+        )
+        
+        # Rotation predictor
+        self.rotation_head = nn.Linear(128, 4)  # 0°, 90°, 180°, 270°
+        
+        # Reflection predictor  
+        self.reflection_head = nn.Linear(128, 3)  # None, Horizontal, Vertical
+        
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 10, 1)
+        )
+        
+        # Initialize affine matrix to identity
+        self.fc_loc[-1].weight.data.zero_()
+        self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
+        
+        self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
+        
+    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        B = input_grid.shape[0]
+        
+        # Encode features
+        features = self.encoder(input_grid)
+        
+        # Predict spatial transformation
+        loc_features = self.localization(features)
+        theta = self.fc_loc(loc_features.view(B, -1))
+        theta = theta.view(-1, 2, 3)
+        
+        # Create sampling grid
+        grid = F.affine_grid(theta, input_grid.size(), align_corners=False)
+        
+        # Apply spatial transformation
+        transformed_input = F.grid_sample(input_grid, grid, align_corners=False)
+        transformed_features = F.grid_sample(features, grid, align_corners=False)
+        
+        # Predict rotation and reflection
+        pooled = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)
+        rotation_logits = self.rotation_head(pooled)
+        reflection_logits = self.reflection_head(pooled)
+        
+        # Apply discrete transformations
+        transformed_features = self._apply_discrete_transforms(
+            transformed_features, rotation_logits, reflection_logits
+        )
+        
+        # Decode to output
+        predicted_output = self.decoder(transformed_features)
+        
+        return {
+            'predicted_output': predicted_output,
+            'theta': theta,
+            'rotation_logits': rotation_logits,
+            'reflection_logits': reflection_logits,
+            'transformed_input': transformed_input
+        }
+    
+    def _apply_discrete_transforms(self, features: torch.Tensor, 
+                                  rotation_logits: torch.Tensor,
+                                  reflection_logits: torch.Tensor) -> torch.Tensor:
+        """Apply predicted rotations and reflections"""
+        B = features.shape[0]
+        
+        # Get predictions
+        rotation_idx = rotation_logits.argmax(dim=1)
+        reflection_idx = reflection_logits.argmax(dim=1)
+        
+        output = features.clone()
+        
+        for i in range(B):
+            # Apply rotation
+            rot = rotation_idx[i].item()
+            if rot > 0:
+                output[i] = torch.rot90(output[i], k=rot, dims=[1, 2])
+            
+            # Apply reflection
+            ref = reflection_idx[i].item()
+            if ref == 1:  # Horizontal
+                output[i] = torch.flip(output[i], dims=[1])
+            elif ref == 2:  # Vertical
+                output[i] = torch.flip(output[i], dims=[2])
+        
+        return output
+
+
+class EnhancedIrisNet(nn.Module):
+    """Enhanced IRIS with color relationship learning"""
+    def __init__(self, max_grid_size: int = 30):
+        super().__init__()
+        
+        # Color embedding
+        self.color_embed = nn.Embedding(10, 64)
+        
+        # Color attention mechanism
+        self.color_attention = nn.MultiheadAttention(64, num_heads=4, batch_first=True)
+        
+        # Spatial color encoder
+        self.spatial_encoder = nn.Sequential(
+            nn.Conv2d(10, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.ReLU()
+        )
+        
+        # Color mapping predictor
+        self.color_mapper = nn.Sequential(
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 10 * 10)  # 10x10 color mapping matrix
+        )
+        
+        # Pattern-based color rules
+        self.rule_encoder = nn.LSTM(64, 128, batch_first=True)
+        
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 10, 1)
+        )
+        
+        self.description = "Enhanced Color Pattern Recognition with Attention"
+        
+    def forward(self, input_grid: torch.Tensor, output_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        B, C, H, W = input_grid.shape
+        
+        # Get color distribution
+        color_indices = input_grid.argmax(dim=1)  # B, H, W
+        
+        # Embed colors
+        color_embeddings = self.color_embed(color_indices)  # B, H, W, 64
+        color_flat = color_embeddings.view(B, -1, 64)
+        
+        # Color attention
+        attended_colors, color_weights = self.color_attention(color_flat, color_flat, color_flat)
+        attended_colors = attended_colors.view(B, H, W, 64).permute(0, 3, 1, 2)
+        
+        # Spatial encoding
+        spatial_features = self.spatial_encoder(input_grid)
+        
+        # Combine color and spatial
+        combined = spatial_features + attended_colors
+        
+        # Predict color mapping
+        global_features = F.adaptive_avg_pool2d(combined, 1).squeeze(-1).squeeze(-1)
+        color_map_logits = self.color_mapper(global_features).view(B, 10, 10)
+        
+        # Apply color mapping
+        mapped_output = self._apply_color_mapping(input_grid, color_map_logits)
+        
+        # Final decode
+        predicted_output = self.decoder(combined)
+        
+        return {
+            'predicted_output': predicted_output,
+            'color_map': F.softmax(color_map_logits, dim=-1),
+            'color_attention': color_weights,
+            'mapped_output': mapped_output
+        }
+    
+    def _apply_color_mapping(self, input_grid: torch.Tensor, color_map: torch.Tensor) -> torch.Tensor:
+        """Apply learned color mapping"""
+        B, C, H, W = input_grid.shape
+        
+        # Get input colors
+        color_indices = input_grid.argmax(dim=1, keepdim=True).float()  # B, 1, H, W
+        
+        # Apply mapping
+        output = torch.zeros_like(input_grid)
+        
+        for b in range(B):
+            for c_in in range(10):
+                mask = (color_indices[b, 0] == c_in)
+                if mask.any():
+                    # Get mapped color probabilities
+                    mapped_probs = color_map[b, c_in]
+                    # Take argmax as new color
+                    new_color = mapped_probs.argmax().item()
+                    output[b, new_color, mask] = 1.0
+        
+        return output
+
+
+class EnhancedChronosNet(nn.Module):
+    """Enhanced CHRONOS with sequence pattern learning"""
+    def __init__(self, max_grid_size: int = 30, hidden_dim: int = 256):
+        super().__init__()
+        
+        # Grid encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(10, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.ReLU()
+        )
+        
+        # Object tracking
+        self.object_encoder = ObjectEncoder(10, 128)
+        
+        # Temporal reasoning with attention
+        self.temporal_attention = nn.MultiheadAttention(hidden_dim, num_heads=8, batch_first=True)
+        
+        # Sequence predictor
+        self.lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers=2, batch_first=True, bidirectional=True)
+        
+        # Movement predictor
+        self.movement_head = nn.Sequential(
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 128)
+        )
+        
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(128 + 128, 128, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, 3, padding=1), 
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 10, 1)
+        )
+        
+        self.description = "Enhanced Temporal Sequence Analysis with Attention"
+        
+    def forward(self, sequence: List[torch.Tensor], target: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        if len(sequence) == 1:
+            # Single frame - treat as static
+            return self._forward_single(sequence[0])
+        
+        # Encode all frames
+        encoded_sequence = []
+        object_sequences = []
+        
+        for frame in sequence:
+            features = self.encoder(frame)
+            obj_features, obj_masks = self.object_encoder(frame)
+            
+            encoded_sequence.append(features)
+            object_sequences.append(obj_features)
+        
+        # Stack sequences
+        seq_tensor = torch.stack([F.adaptive_avg_pool2d(f, 1).squeeze(-1).squeeze(-1) for f in encoded_sequence], dim=1)
+        
+        # Temporal attention
+        attended_seq, attention_weights = self.temporal_attention(seq_tensor, seq_tensor, seq_tensor)
+        
+        # LSTM processing
+        lstm_out, (hidden, cell) = self.lstm(attended_seq)
+        
+        # Predict next movement
+        movement_params = self.movement_head(lstm_out[:, -1])
+        
+        # Apply movement to last frame
+        last_frame_features = encoded_sequence[-1]
+        last_objects = object_sequences[-1]
+        
+        moved_features = self._apply_movement(last_objects, movement_params)
+        
+        # Decode
+        combined = torch.cat([last_frame_features, moved_features], dim=1)
+        predicted_output = self.decoder(combined)
+        
+        return {
+            'predicted_output': predicted_output,
+            'movement_params': movement_params,
+            'attention_weights': attention_weights,
+            'temporal_features': lstm_out
+        }
+    
+    def _forward_single(self, input_grid: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """Handle single frame input"""
+        features = self.encoder(input_grid)
+        obj_features, obj_masks = self.object_encoder(input_grid)
+        
+        # Simple forward without temporal processing
+        combined = torch.cat([features, obj_features], dim=1)
+        predicted_output = self.decoder(combined)
+        
+        return {
+            'predicted_output': predicted_output,
+            'movement_params': torch.zeros(input_grid.shape[0], 128).to(input_grid.device),
+            'temporal_features': features
+        }
+    
+    def _apply_movement(self, features: torch.Tensor, movement_params: torch.Tensor) -> torch.Tensor:
+        """Apply predicted movement to features"""
+        B, C, H, W = features.shape
+        
+        # Interpret movement parameters as displacement field
+        # Simplified - enhance this with actual movement logic
+        moved = features.clone()
+        
+        # Add movement-based modulation
+        movement_field = movement_params[:, :C].view(B, C, 1, 1)
+        moved = moved * torch.sigmoid(movement_field)
+        
+        return moved
+
+
+class EnhancedPrometheusNet(nn.Module):
+    """Enhanced PROMETHEUS with better pattern generation"""
+    def __init__(self, max_grid_size: int = 30, latent_dim: int = 128):
+        super().__init__()
+        self.latent_dim = latent_dim
+        
+        # Enhanced encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(10, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, 3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, 3, stride=2, padding=1),
+            nn.ReLU()
+        )
+        
+        # Object and pattern encoder
+        self.pattern_encoder = nn.Sequential(
+            nn.Conv2d(256, 256, 3, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(4)
+        )
+        
+        # VAE components
+        self.fc_mu = nn.Linear(256 * 4 * 4, latent_dim)
+        self.fc_var = nn.Linear(256 * 4 * 4, latent_dim)
+        
+        # Pattern synthesis network
+        self.synthesis_net = nn.Sequential(
+            nn.Linear(latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256 * 4 * 4)
+        )
+        
+        # Rule generator
+        self.rule_generator = nn.Sequential(
+            nn.Linear(latent_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64)
+        )
+        
+        # Decoder with skip connections
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, 3, padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 10, 1)
+        )
+        
+        self.description = "Enhanced Creative Pattern Generation with VAE"
+        
+    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Encode input to latent distribution"""
+        features = self.encoder(x)
+        pattern_features = self.pattern_encoder(features)
+        pattern_flat = pattern_features.view(pattern_features.shape[0], -1)
+        
+        mu = self.fc_mu(pattern_flat)
+        log_var = self.fc_var(pattern_flat)
+        
+        return mu, log_var
+    
+    def reparameterize(self, mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
+        """Reparameterization trick"""
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+    
+    def decode(self, z: torch.Tensor, input_shape: torch.Size) -> torch.Tensor:
+        """Decode from latent space"""
+        # Generate features
+        features = self.synthesis_net(z)
+        features = features.view(-1, 256, 4, 4)
+        
+        # Upsample to match input size
+        B, _, H, W = input_shape
+        
+        # Decode
+        output = self.decoder(features)
+        
+        # Ensure output matches input spatial size
+        if output.shape[-2:] != (H, W):
+            output = F.interpolate(output, size=(H, W), mode='bilinear', align_corners=False)
+        
+        return output
+    
+    def forward(self, input_grid: torch.Tensor, target_grid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        # Encode
+        mu, log_var = self.encode(input_grid)
+        z = self.reparameterize(mu, log_var)
+        
+        # Generate transformation rules
+        rules = self.rule_generator(z)
+        
+        # Decode
+        predicted_output = self.decode(z, input_grid.shape)
+        
+        # Apply rules to refine output
+        refined_output = self._apply_rules(predicted_output, rules, input_grid)
+        
+        outputs = {
+            'predicted_output': refined_output,
+            'raw_output': predicted_output,
+            'mu': mu,
+            'log_var': log_var,
+            'latent': z,
+            'rules': rules
+        }
+        
+        return outputs
+    
+    def _apply_rules(self, generated: torch.Tensor, rules: torch.Tensor, input_grid: torch.Tensor) -> torch.Tensor:
+        """Apply learned rules to refine generation"""
+        # Simple rule application - enhance this
+        B = generated.shape[0]
+        
+        # Use rules to modulate generation
+        rule_weights = torch.sigmoid(rules[:, :10]).view(B, 10, 1, 1)
+        
+        # Blend with input based on rules
+        refined = generated * rule_weights + input_grid * (1 - rule_weights)
+        
+        return refined
+
+
+def create_enhanced_models() -> Dict[str, nn.Module]:
+    """Create all enhanced models"""
+    return {
+        'minerva': EnhancedMinervaNet(),
+        'atlas': EnhancedAtlasNet(),
+        'iris': EnhancedIrisNet(),
+        'chronos': EnhancedChronosNet(),
+        'prometheus': EnhancedPrometheusNet()
+    }
