@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARC Prize 2025 - Hailo-Powered Pattern Recognition</title>
+    <title>ARC Prize 2025 - Advanced Pattern Recognition System</title>
     <style>
         * {
             margin: 0;
@@ -13,324 +13,424 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 50%, #e8e8e8 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            padding: 40px;
-            position: relative;
-        }
-        
-        .background-pattern {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0.05;
-            z-index: -1;
-            background-image: 
-                repeating-linear-gradient(45deg, #000000 25%, transparent 25%, transparent 75%, #000000 75%, #000000),
-                repeating-linear-gradient(-45deg, #000000 25%, transparent 25%, transparent 75%, #000000 75%, #000000);
-            background-size: 50px 50px;
-            background-position: 0 0, 25px 25px;
+            background: #ffffff;
+            color: #333333;
+            line-height: 1.6;
         }
         
         .header {
-            text-align: center;
-            margin-bottom: 60px;
-            animation: fadeInDown 1s ease-out;
-        }
-        
-        .logo {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 30px;
-            background: linear-gradient(135deg, #00d4aa 0%, #00a88a 100%);
-            border-radius: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
+            background: #000000;
             color: white;
-            font-weight: bold;
-            box-shadow: 0 10px 30px rgba(0, 212, 170, 0.3);
-            transform: rotate(-5deg);
-            transition: transform 0.3s ease;
+            padding: 60px 0;
+            text-align: center;
         }
         
-        .logo:hover {
-            transform: rotate(0deg) scale(1.1);
-        }
-        
-        h1 {
+        .header h1 {
             font-size: 48px;
-            font-weight: 800;
-            color: #000000;
-            margin-bottom: 10px;
-            letter-spacing: -2px;
-        }
-        
-        .subtitle {
-            font-size: 24px;
-            color: #666666;
-            font-weight: 300;
-            letter-spacing: 2px;
-        }
-        
-        .prize-amount {
-            font-size: 36px;
-            color: #00d4aa;
             font-weight: 700;
-            margin: 20px 0;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
         }
         
-        .content {
+        .header .subtitle {
+            font-size: 20px;
+            font-weight: 300;
+            opacity: 0.8;
+        }
+        
+        .header .prize {
+            font-size: 32px;
+            color: #00d4aa;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 80px 40px;
+        }
+        
+        .section {
+            margin-bottom: 80px;
+        }
+        
+        h2 {
+            font-size: 36px;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #00d4aa;
+        }
+        
+        .overview {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 60px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            animation: fadeInUp 1s ease-out;
-            animation-fill-mode: both;
-        }
-        
-        .card:nth-child(1) { animation-delay: 0.2s; }
-        .card:nth-child(2) { animation-delay: 0.4s; }
-        .card:nth-child(3) { animation-delay: 0.6s; }
-        
-        .card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-        }
-        
-        .card-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
-            border-radius: 15px;
-            display: flex;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            margin: 60px 0;
             align-items: center;
-            justify-content: center;
-            font-size: 28px;
+        }
+        
+        .overview-text {
+            font-size: 18px;
+            color: #666666;
+        }
+        
+        .overview-text p {
             margin-bottom: 20px;
         }
         
-        .card h3 {
-            font-size: 24px;
+        .overview-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .stat-box {
+            background: #f5f5f5;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: #00d4aa;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .approach {
+            background: #f5f5f5;
+            border-radius: 20px;
+            padding: 60px;
+            margin: 60px 0;
+        }
+        
+        .approach h3 {
+            font-size: 28px;
+            color: #000000;
+            margin-bottom: 30px;
+        }
+        
+        .approach-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-top: 40px;
+        }
+        
+        .approach-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease;
+        }
+        
+        .approach-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .approach-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .approach-card h4 {
+            font-size: 20px;
             color: #000000;
             margin-bottom: 15px;
         }
         
-        .card p {
+        .approach-card p {
             font-size: 16px;
             color: #666666;
-            line-height: 1.6;
         }
         
         .tech-stack {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
+            gap: 15px;
             margin: 40px 0;
-            animation: fadeIn 1.5s ease-out;
+            justify-content: center;
         }
         
         .tech-badge {
             background: #000000;
             color: white;
-            padding: 10px 20px;
+            padding: 10px 25px;
             border-radius: 25px;
             font-size: 14px;
             font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .models {
+            margin: 60px 0;
+        }
+        
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-top: 40px;
+        }
+        
+        .model-card {
+            background: white;
+            border: 2px solid #e8e8e8;
+            border-radius: 15px;
+            padding: 30px;
             transition: all 0.3s ease;
         }
         
-        .tech-badge:hover {
-            background: #00d4aa;
-            transform: scale(1.1);
+        .model-card:hover {
+            border-color: #00d4aa;
+            box-shadow: 0 5px 20px rgba(0, 212, 170, 0.2);
         }
         
-        .cta {
+        .model-card h4 {
+            font-size: 20px;
+            color: #000000;
+            margin-bottom: 10px;
+        }
+        
+        .model-card .model-type {
+            font-size: 14px;
+            color: #00d4aa;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .model-card p {
+            font-size: 15px;
+            color: #666666;
+        }
+        
+        .cta-section {
             text-align: center;
-            animation: fadeInUp 1.5s ease-out;
+            padding: 80px 0;
+            background: #f5f5f5;
+            border-radius: 20px;
+            margin-top: 80px;
         }
         
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #00d4aa 0%, #00a88a 100%);
-            color: white;
-            padding: 20px 50px;
-            border-radius: 50px;
+        .cta-section h2 {
+            border: none;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 20px;
+            color: #666666;
+            margin-bottom: 40px;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 15px 40px;
             font-size: 18px;
             font-weight: 600;
+            border-radius: 8px;
             text-decoration: none;
             transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(0, 212, 170, 0.3);
-            letter-spacing: 1px;
+            display: inline-block;
         }
         
-        .cta-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px rgba(0, 212, 170, 0.4);
-        }
-        
-        .pattern-grid {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px;
-            height: 600px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            opacity: 0.03;
-            z-index: -1;
-            pointer-events: none;
-        }
-        
-        .pattern-cell {
+        .btn-primary {
             background: #000000;
-            border-radius: 10px;
+            color: white;
         }
         
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .btn-primary:hover {
+            background: #333333;
+            transform: translateY(-2px);
         }
         
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .btn-secondary {
+            background: white;
+            color: #000000;
+            border: 2px solid #000000;
         }
         
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
+        .btn-secondary:hover {
+            background: #f5f5f5;
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 1024px) {
+            .overview {
+                grid-template-columns: 1fr;
             }
-            to {
-                opacity: 1;
+            
+            .approach-grid {
+                grid-template-columns: 1fr;
             }
         }
         
         @media (max-width: 768px) {
-            h1 {
+            .container {
+                padding: 40px 20px;
+            }
+            
+            .header h1 {
                 font-size: 36px;
             }
             
-            .subtitle {
-                font-size: 18px;
+            .header .prize {
+                font-size: 24px;
             }
             
-            .prize-amount {
+            h2 {
                 font-size: 28px;
             }
             
-            .container {
-                padding: 20px;
+            .approach {
+                padding: 40px 20px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="background-pattern"></div>
-    <div class="pattern-grid">
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
-        <div class="pattern-cell"></div>
+    <div class="header">
+        <h1>ARC Prize 2025</h1>
+        <p class="subtitle">Advanced Pattern Recognition System</p>
+        <p class="prize">$1,000,000 Competition</p>
     </div>
     
     <div class="container">
-        <div class="header">
-            <div class="logo">ARC</div>
-            <h1>ARC Prize 2025</h1>
-            <p class="subtitle">HAILO-POWERED PATTERN RECOGNITION</p>
-            <p class="prize-amount">$1,000,000 COMPETITION</p>
-        </div>
-        
-        <div class="content">
-            <div class="card">
-                <div class="card-icon">🧠</div>
-                <h3>8 Pattern Detectors</h3>
-                <p>Specialized modules for geometric, color, counting, logical, spatial, symmetry, object, and composite patterns - inspired by Apollo Nexus architecture.</p>
-            </div>
+        <section class="section">
+            <h2>Project Overview</h2>
             
-            <div class="card">
-                <div class="card-icon">⚡</div>
-                <h3>26 TOPS Processing</h3>
-                <p>Leveraging Hailo-8 NPU for massive parallel pattern analysis during offline pre-computation phase. Unlimited time for discovery.</p>
+            <div class="overview">
+                <div class="overview-text">
+                    <p>Our solution for the ARC Prize 2025 combines cutting-edge neural architectures with sophisticated pattern recognition to tackle abstract reasoning challenges.</p>
+                    <p>The system leverages ensemble learning across five specialized models, each designed to capture different aspects of visual reasoning and pattern transformation.</p>
+                    <p>By focusing on reconstruction rather than classification, we achieve precise grid transformations that meet the competition's exacting standards.</p>
+                </div>
+                
+                <div class="overview-stats">
+                    <div class="stat-box">
+                        <div class="stat-number">85%</div>
+                        <div class="stat-label">Target Accuracy</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">$700K</div>
+                        <div class="stat-label">Grand Prize</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">5</div>
+                        <div class="stat-label">Model Ensemble</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">10</div>
+                        <div class="stat-label">Color Classes</div>
+                    </div>
+                </div>
             </div>
+        </section>
+        
+        <section class="section">
+            <div class="approach">
+                <h3>Technical Approach</h3>
+                
+                <div class="approach-grid">
+                    <div class="approach-card">
+                        <div class="approach-icon">🎯</div>
+                        <h4>Reconstruction Focus</h4>
+                        <p>Direct grid-to-grid transformation instead of pattern classification</p>
+                    </div>
+                    
+                    <div class="approach-card">
+                        <div class="approach-icon">🧠</div>
+                        <h4>Advanced Loss Functions</h4>
+                        <p>Focal loss, edge-aware weighting, and structure preservation</p>
+                    </div>
+                    
+                    <div class="approach-card">
+                        <div class="approach-icon">📊</div>
+                        <h4>Curriculum Learning</h4>
+                        <p>Progressive difficulty scaling from simple to complex patterns</p>
+                    </div>
+                </div>
+                
+                <div class="tech-stack">
+                    <span class="tech-badge">PyTorch</span>
+                    <span class="tech-badge">CUDA</span>
+                    <span class="tech-badge">Mixed Precision</span>
+                    <span class="tech-badge">A100 GPU</span>
+                    <span class="tech-badge">Python</span>
+                    <span class="tech-badge">NumPy</span>
+                    <span class="tech-badge">Kaggle</span>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section models">
+            <h2>Model Architecture</h2>
             
-            <div class="card">
-                <div class="card-icon">🎯</div>
-                <h3>85% Accuracy Target</h3>
-                <p>Aiming for the grand prize of $700,000 by achieving 85% accuracy on the private evaluation dataset.</p>
+            <p style="font-size: 18px; color: #666666; margin-bottom: 40px;">
+                The OLYMPUS ensemble combines five specialized neural networks, each targeting specific pattern types found in ARC tasks.
+            </p>
+            
+            <div class="model-grid">
+                <div class="model-card">
+                    <h4>MINERVA</h4>
+                    <p class="model-type">Strategic Analysis</p>
+                    <p>Grid attention mechanisms with relational reasoning for complex pattern understanding</p>
+                </div>
+                
+                <div class="model-card">
+                    <h4>ATLAS</h4>
+                    <p class="model-type">Spatial Transformer</p>
+                    <p>Handles rotations, reflections, and affine transformations with learned parameters</p>
+                </div>
+                
+                <div class="model-card">
+                    <h4>IRIS</h4>
+                    <p class="model-type">Color Reasoning</p>
+                    <p>Specialized in color mappings, replacements, and pattern-based color rules</p>
+                </div>
+                
+                <div class="model-card">
+                    <h4>CHRONOS</h4>
+                    <p class="model-type">Temporal Analysis</p>
+                    <p>LSTM-based architecture for sequence patterns and movement prediction</p>
+                </div>
+                
+                <div class="model-card">
+                    <h4>PROMETHEUS</h4>
+                    <p class="model-type">Creative Generation</p>
+                    <p>VAE architecture for complex transformations and pattern synthesis</p>
+                </div>
             </div>
-        </div>
+        </section>
         
-        <div class="tech-stack">
-            <span class="tech-badge">Python</span>
-            <span class="tech-badge">NumPy</span>
-            <span class="tech-badge">Hailo-8 NPU</span>
-            <span class="tech-badge">Kaggle</span>
-            <span class="tech-badge">Pattern Recognition</span>
-            <span class="tech-badge">Machine Learning</span>
-        </div>
-        
-        <div class="cta">
-            <a href="https://github.com/AutomataControls/Arc2025" class="cta-button">
-                View on GitHub
-            </a>
+        <div class="cta-section">
+            <h2>Ready to Explore</h2>
+            <p>Dive into our solution for the Abstract Reasoning Corpus challenge</p>
+            
+            <div class="cta-buttons">
+                <a href="https://github.com/AutomataControls/Arc2025" class="btn btn-primary">View on GitHub</a>
+                <a href="technical_overview.html" class="btn btn-secondary">Technical Documentation</a>
+            </div>
         </div>
     </div>
-    
-    <script>
-        // Add some interactive pattern animation
-        document.addEventListener('DOMContentLoaded', function() {
-            const cells = document.querySelectorAll('.pattern-cell');
-            
-            setInterval(() => {
-                const randomCell = cells[Math.floor(Math.random() * cells.length)];
-                randomCell.style.opacity = Math.random() * 0.3;
-                setTimeout(() => {
-                    randomCell.style.opacity = '';
-                }, 1000);
-            }, 500);
-        });
-    </script>
 </body>
 </html>
