@@ -954,53 +954,74 @@ def plot_enhanced_results(history: Dict):
     """Create enhanced visualization of results"""
     print("\n📈 Creating enhanced visualizations...")
     
-    # Create subplots
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    # Set style to match documentation
+    plt.style.use('seaborn-v0_8-whitegrid')
+    
+    # Create subplots with custom styling
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10), facecolor='white')
+    fig.patch.set_facecolor('white')
+    
+    # Define color palette matching documentation
+    model_colors = {
+        'minerva': '#00d4aa',
+        'atlas': '#00a88a', 
+        'iris': '#666666',
+        'chronos': '#333333',
+        'prometheus': '#00c299'
+    }
     
     # 1. Loss curves
     ax1 = axes[0, 0]
     for model_name, h in history.items():
-        ax1.plot(h['train_loss'], label=f'{model_name} (train)', linewidth=2)
-        ax1.plot(h['val_loss'], '--', label=f'{model_name} (val)', alpha=0.7)
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Loss')
-    ax1.set_title('Training and Validation Loss')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+        color = model_colors.get(model_name, '#999999')
+        ax1.plot(h['train_loss'], label=f'{model_name} (train)', linewidth=2, color=color)
+        ax1.plot(h['val_loss'], '--', label=f'{model_name} (val)', alpha=0.7, color=color)
+    ax1.set_xlabel('Epoch', fontsize=12, color='#333333')
+    ax1.set_ylabel('Loss', fontsize=12, color='#333333')
+    ax1.set_title('Training and Validation Loss', fontsize=14, fontweight='bold', color='#000000')
+    ax1.legend(frameon=True, fancybox=True, shadow=True)
+    ax1.set_facecolor('#f5f5f5')
+    ax1.grid(True, alpha=0.3, color='white')
     
     # 2. Accuracy curves
     ax2 = axes[0, 1]
     for model_name, h in history.items():
-        ax2.plot(h['val_accuracy'], label=model_name, linewidth=2)
-    ax2.axhline(y=85, color='red', linestyle='--', label='$700K Target', linewidth=3)
-    ax2.axhline(y=70, color='orange', linestyle='--', label='Previous Best', alpha=0.5)
-    ax2.set_xlabel('Epoch')
-    ax2.set_ylabel('Validation Accuracy (%)')
-    ax2.set_title('Progress Toward Grand Prize')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+        color = model_colors.get(model_name, '#999999')
+        ax2.plot(h['val_accuracy'], label=model_name, linewidth=2, color=color)
+    ax2.axhline(y=85, color='#00d4aa', linestyle='--', label='$700K Target', linewidth=3)
+    ax2.axhline(y=70, color='#00a88a', linestyle='--', label='Previous Best', alpha=0.5)
+    ax2.set_xlabel('Epoch', fontsize=12, color='#333333')
+    ax2.set_ylabel('Validation Accuracy (%)', fontsize=12, color='#333333')
+    ax2.set_title('Progress Toward Grand Prize', fontsize=14, fontweight='bold', color='#000000')
+    ax2.legend(frameon=True, fancybox=True, shadow=True)
+    ax2.set_facecolor('#f5f5f5')
+    ax2.grid(True, alpha=0.3, color='white')
     
     # 3. Consistency scores
     ax3 = axes[1, 0]
     for model_name, h in history.items():
-        ax3.plot(h['val_consistency'], label=model_name, linewidth=2)
-    ax3.set_xlabel('Epoch')
-    ax3.set_ylabel('Consistency Loss')
-    ax3.set_title('Prediction Confidence (lower is better)')
-    ax3.legend()
-    ax3.grid(True, alpha=0.3)
+        color = model_colors.get(model_name, '#999999')
+        ax3.plot(h['val_consistency'], label=model_name, linewidth=2, color=color)
+    ax3.set_xlabel('Epoch', fontsize=12, color='#333333')
+    ax3.set_ylabel('Consistency Loss', fontsize=12, color='#333333')
+    ax3.set_title('Prediction Confidence (lower is better)', fontsize=14, fontweight='bold', color='#000000')
+    ax3.legend(frameon=True, fancybox=True, shadow=True)
+    ax3.set_facecolor('#f5f5f5')
+    ax3.grid(True, alpha=0.3, color='white')
     
     # 4. Final comparison
     ax4 = axes[1, 1]
     model_names = list(history.keys())
     final_accs = [max(h['val_accuracy']) for h in history.values()]
-    colors = ['green' if acc >= 85 else 'blue' if acc >= 70 else 'red' for acc in final_accs]
+    bar_colors = ['#00d4aa' if acc >= 85 else '#00a88a' if acc >= 70 else '#666666' for acc in final_accs]
     
-    bars = ax4.bar(model_names, final_accs, color=colors)
-    ax4.axhline(y=85, color='red', linestyle='--', label='Grand Prize', linewidth=2)
-    ax4.set_ylabel('Best Validation Accuracy (%)')
-    ax4.set_title('Model Performance Summary')
+    bars = ax4.bar(model_names, final_accs, color=bar_colors, edgecolor='white', linewidth=2)
+    ax4.axhline(y=85, color='#00d4aa', linestyle='--', label='Grand Prize', linewidth=2)
+    ax4.set_ylabel('Best Validation Accuracy (%)', fontsize=12, color='#333333')
+    ax4.set_title('Model Performance Summary', fontsize=14, fontweight='bold', color='#000000')
     ax4.set_ylim(0, 100)
+    ax4.set_facecolor('#f5f5f5')
+    ax4.grid(True, axis='y', alpha=0.3, color='white')
     
     # Add value labels on bars
     for bar, acc in zip(bars, final_accs):
@@ -1008,8 +1029,16 @@ def plot_enhanced_results(history: Dict):
         ax4.text(bar.get_x() + bar.get_width()/2., height,
                 f'{acc:.1f}%', ha='center', va='bottom')
     
+    # Apply consistent styling to all subplots
+    for ax in axes.flat:
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#e8e8e8')
+        ax.spines['bottom'].set_color('#e8e8e8')
+        ax.tick_params(colors='#666666')
+    
     plt.tight_layout()
-    plt.savefig('/content/results/enhanced_v2_training_results.png', dpi=300)
+    plt.savefig('/content/results/enhanced_v2_training_results.png', dpi=300, bbox_inches='tight', facecolor='white')
     plt.show()
 
 

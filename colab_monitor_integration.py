@@ -65,9 +65,9 @@ class ColabTrainingMonitor:
                    [{}, {"type": "indicator"}]]
         )
         
-        # 1. Accuracy curves
-        colors = {'minerva': '#9B59B6', 'atlas': '#3498DB', 'iris': '#E74C3C', 
-                 'chronos': '#F39C12', 'prometheus': '#27AE60'}
+        # 1. Accuracy curves - matching documentation color scheme
+        colors = {'minerva': '#00d4aa', 'atlas': '#00a88a', 'iris': '#666666', 
+                 'chronos': '#333333', 'prometheus': '#00c299'}
         
         for model in self.models:
             if self.histories[model]['epochs']:
@@ -89,7 +89,7 @@ class ColabTrainingMonitor:
                 y=[85, 85],
                 mode='lines',
                 name='$700k Target',
-                line=dict(color='red', width=2, dash='dash')
+                line=dict(color='#00d4aa', width=3, dash='dash')
             ), row=1, col=1)
         
         # 2. Best scores bar chart
@@ -115,12 +115,12 @@ class ColabTrainingMonitor:
             delta = {'reference': 85, 'suffix': '%'},
             gauge = {
                 'axis': {'range': [None, 100]},
-                'bar': {'color': "darkgreen" if best_overall >= 0.85 else "darkblue"},
+                'bar': {'color': "#00d4aa" if best_overall >= 0.85 else "#00a88a"},
                 'steps': [
-                    {'range': [0, 70], 'color': "lightgray"},
-                    {'range': [70, 85], 'color': "gray"}],
+                    {'range': [0, 70], 'color': "#e8e8e8"},
+                    {'range': [70, 85], 'color': "#d0d0d0"}],
                 'threshold': {
-                    'line': {'color': "red", 'width': 4},
+                    'line': {'color': "#00d4aa", 'width': 4},
                     'thickness': 0.75,
                     'value': 85
                 }
@@ -128,17 +128,29 @@ class ColabTrainingMonitor:
             title = {'text': f"Best: {max(best_models, key=lambda x: x[1])[0].upper()} | Target: $700K"}
         ), row=2, col=2)
         
-        # Update layout
+        # Update layout with documentation color scheme
         fig.update_layout(
             height=800,
             showlegend=True,
             title_text=f"ARC Prize 2025 Training Monitor - {datetime.now().strftime('%H:%M:%S')}",
-            title_font_size=20
+            title_font_size=20,
+            plot_bgcolor='#f5f5f5',
+            paper_bgcolor='white',
+            font=dict(
+                family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+                size=12,
+                color="#333333"
+            )
         )
         
-        fig.update_xaxes(title_text="Epoch", row=1, col=1)
-        fig.update_yaxes(title_text="Accuracy (%)", row=1, col=1)
-        fig.update_yaxes(title_text="Best Accuracy (%)", row=2, col=1)
+        # Style axes
+        fig.update_xaxes(title_text="Epoch", row=1, col=1, gridcolor='white', linecolor='#e8e8e8')
+        fig.update_yaxes(title_text="Accuracy (%)", row=1, col=1, gridcolor='white', linecolor='#e8e8e8')
+        fig.update_yaxes(title_text="Best Accuracy (%)", row=2, col=1, gridcolor='white', linecolor='#e8e8e8')
+        
+        # Update grid style for all axes
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='white')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='white')
         
         # Show
         fig.show()
@@ -199,13 +211,14 @@ def setup_colab_monitor():
     display(HTML("""
     <style>
     .milestone-alert {
-        background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #00d4aa 0%, #00a88a 100%);
         color: white;
         padding: 20px;
-        border-radius: 10px;
+        border-radius: 20px;
         font-size: 20px;
         text-align: center;
         margin: 20px 0;
+        box-shadow: 0 10px 30px rgba(0, 212, 170, 0.3);
         animation: pulse 2s infinite;
     }
     @keyframes pulse {
