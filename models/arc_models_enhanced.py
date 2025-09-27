@@ -227,10 +227,10 @@ class EnhancedMinervaNet(nn.Module):
         
         # Initialize final layer with moderate values for stability
         # Use xavier for balanced initialization
-        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.0)
-        # Initialize bias with small positive values for all colors
-        # Background (0) gets 0 bias, others get small positive bias
-        bias_values = torch.tensor([0.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.5)
+        # Initialize bias to encourage all colors equally
+        # Give all colors including background equal chance
+        bias_values = torch.ones(10) * 0.05  # Small equal bias for all
         self.decoder[-1].bias.data = bias_values
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
@@ -386,9 +386,9 @@ class EnhancedAtlasNet(nn.Module):
         )
         
         # Initialize final layer with strong values
-        nn.init.normal_(self.decoder[-1].weight, mean=0.0, std=0.8)
-        # Diverse bias initialization for ATLAS
-        self.decoder[-1].bias.data = torch.tensor([0.0, 0.15, 0.1, 0.2, 0.1, 0.15, 0.25, 0.2, 0.3, 0.15])
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.2)
+        # Equal bias for all colors in ATLAS
+        self.decoder[-1].bias.data = torch.ones(10) * 0.05
         
         # Initialize affine matrix to identity
         self.fc_loc[-1].weight.data.zero_()
@@ -431,8 +431,13 @@ class EnhancedAtlasNet(nn.Module):
         # Decode to output
         predicted_output = self.decoder(transformed_features)
         
-        # Pure transformation for ATLAS - NO residual at all
-        # predicted_output already contains the transformation
+        # Add minimal residual for ATLAS to prevent collapse
+        mix = torch.sigmoid(self.mix_param)
+        if self.training:
+            mix = mix * 0.7  # Use more residual for ATLAS
+        else:
+            mix = mix * 0.8
+        predicted_output = predicted_output * (1 - mix) + input_grid * mix
         
         return {
             'predicted_output': predicted_output,
@@ -509,9 +514,9 @@ class EnhancedIrisNet(nn.Module):
         )
         
         # Initialize final layer for strong color changes
-        nn.init.normal_(self.decoder[-1].weight, mean=0.0, std=0.9)
-        # Diverse bias for all colors - IRIS specializes in color
-        self.decoder[-1].bias.data = torch.tensor([0.0, 0.3, 0.2, 0.25, 0.15, 0.2, 0.35, 0.4, 0.3, 0.2])
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.5)
+        # Slightly varied bias for IRIS color specialization
+        self.decoder[-1].bias.data = torch.tensor([0.0, 0.08, 0.06, 0.07, 0.05, 0.06, 0.08, 0.09, 0.07, 0.06])
         
         self.description = "Enhanced Color Pattern Recognition with Attention"
         
@@ -626,9 +631,9 @@ class EnhancedChronosNet(nn.Module):
         )
         
         # Initialize final layer with strong values
-        nn.init.normal_(self.decoder[-1].weight, mean=0.0, std=0.8)
-        # Diverse bias initialization for CHRONOS
-        self.decoder[-1].bias.data = torch.tensor([0.0, 0.2, 0.15, 0.1, 0.2, 0.25, 0.15, 0.3, 0.2, 0.1])
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.3)
+        # Equal small bias for CHRONOS
+        self.decoder[-1].bias.data = torch.ones(10) * 0.05
         
         # Mix parameter - start at 0.2 to favor transformations
         self.mix_param = nn.Parameter(torch.tensor(0.2))
@@ -787,9 +792,9 @@ class EnhancedPrometheusNet(nn.Module):
         )
         
         # Initialize final layer for creative generation
-        nn.init.normal_(self.decoder[-1].weight, mean=0.0, std=1.2)
-        # Strong diverse bias for creativity - PROMETHEUS needs variety
-        self.decoder[-1].bias.data = torch.tensor([0.0, 0.4, 0.3, 0.2, 0.35, 0.25, 0.45, 0.5, 0.4, 0.3])
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
+        # Small varied bias for PROMETHEUS creativity
+        self.decoder[-1].bias.data = torch.tensor([0.0, 0.1, 0.08, 0.06, 0.09, 0.07, 0.11, 0.12, 0.1, 0.08])
         
         self.description = "Enhanced Creative Pattern Generation with VAE"
         
