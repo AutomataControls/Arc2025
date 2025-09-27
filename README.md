@@ -25,6 +25,20 @@ This repository contains our solution for the **ARC Prize 2025** - a $1,000,000 
 
 Achieve **85% accuracy** on the ARC-AGI-2 private evaluation dataset to win the grand prize of **$700,000**.
 
+### 📊 Real-Time Training Monitor
+
+Track your models' progress toward the 85% target with our custom monitoring tools:
+- **Live accuracy tracking** with milestone alerts (70%, 75%, 80%, 85%)
+- **Time-to-target estimation** based on current improvement rate
+- **Overfitting detection** and training recommendations
+- **Interactive dashboards** for Colab integration
+
+```python
+# Add to your training script:
+from colab_monitor_integration import setup_colab_monitor, update_monitor_in_loop
+monitor = setup_colab_monitor()
+```
+
 ## 🚀 Key Innovation
 
 Unlike traditional approaches limited by Kaggle's 12-hour runtime, we use:
@@ -45,6 +59,9 @@ ARCPrize2025/
 ├── precompute_patterns.py    # Offline pattern analysis script
 ├── kaggle_submission.py      # Kaggle notebook submission script
 ├── colab_training.py         # Google Colab training script
+├── colab_training_fixed.py   # Enhanced training with full dataset
+├── training_monitor.py       # Real-time progress tracking to 85%
+├── colab_monitor_integration.py  # Colab-specific monitoring
 ├── explore_arc_data.py       # Data exploration and visualization
 ├── test_framework.py         # Local testing and validation
 ├── data/                     # ARC dataset files
