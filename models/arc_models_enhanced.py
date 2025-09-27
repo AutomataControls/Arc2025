@@ -208,25 +208,27 @@ class EnhancedMinervaNet(nn.Module):
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
-        # Simple mixing parameter - start at 0.5
-        self.mix_param = nn.Parameter(torch.tensor(0.5))
+        # Simple mixing parameter - start at 0.1 to favor predictions
+        self.mix_param = nn.Parameter(torch.tensor(0.1))
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(hidden_dim * 2, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
+            nn.Dropout2d(0.3),  # Add dropout
             nn.ConvTranspose2d(128, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.Dropout2d(0.2),  # Add dropout
             nn.ConvTranspose2d(64, 10, 1),  # 10 colors
             # NO SOFTMAX - CrossEntropyLoss expects raw logits
         )
         
-        # Initialize final layer with larger values to compete with residual
-        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
-        # Initialize bias to slightly favor non-background colors
-        nn.init.constant_(self.decoder[-1].bias, -0.1)  # Slight negative bias
+        # Initialize final layer with MUCH larger values for strong predictions
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=5.0)
+        # Initialize bias to strongly favor non-background colors
+        nn.init.constant_(self.decoder[-1].bias, 0.5)  # Positive bias for action
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
         
@@ -255,9 +257,9 @@ class EnhancedMinervaNet(nn.Module):
             predicted_output = self.decoder(torch.cat([combined_features, transformed], dim=1))
             
             # Mix prediction with input using learnable parameter
-            # Sigmoid to keep in [0, 1] range
+            # Sigmoid to keep in [0, 1] range - but favor the prediction!
             mix = torch.sigmoid(self.mix_param)
-            predicted_output = mix * predicted_output + (1 - mix) * input_grid
+            predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
             return {
                 'predicted_output': predicted_output,
@@ -273,7 +275,7 @@ class EnhancedMinervaNet(nn.Module):
             
             # Mix prediction with input
             mix = torch.sigmoid(self.mix_param)
-            predicted_output = mix * predicted_output + (1 - mix) * input_grid
+            predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
             return {
                 'predicted_output': predicted_output,
@@ -291,8 +293,9 @@ class EnhancedMinervaNet(nn.Module):
         # Use transform params to modulate features
         transform_matrix = transform_params.view(B, C, 1, 1)
         
-        # Apply transformation with sigmoid to keep values in reasonable range
-        transformed = features * torch.sigmoid(transform_matrix)
+        # Apply STRONGER transformation - use tanh for wider range [-1, 1]
+        # Then scale up to allow big changes
+        transformed = features * (1.0 + 2.0 * torch.tanh(transform_matrix))
         
         return transformed
     
@@ -359,22 +362,24 @@ class EnhancedAtlasNet(nn.Module):
             nn.ConvTranspose2d(128, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.Dropout2d(0.3),
             nn.ConvTranspose2d(64, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
+            nn.Dropout2d(0.2),
             nn.ConvTranspose2d(32, 10, 1)
         )
         
-        # Initialize final layer
-        nn.init.xavier_uniform_(self.decoder[-1].weight)
-        nn.init.zeros_(self.decoder[-1].bias)
+        # Initialize final layer with strong values
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=3.0)
+        nn.init.constant_(self.decoder[-1].bias, 0.2)
         
         # Initialize affine matrix to identity
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
-        # Mix parameter  
-        self.mix_param = nn.Parameter(torch.tensor(0.5))
+        # Mix parameter - start low to favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.1))
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
@@ -410,8 +415,8 @@ class EnhancedAtlasNet(nn.Module):
         # Decode to output
         predicted_output = self.decoder(transformed_features)
         
-        # Add residual connection with gate
-        predicted_output = predicted_output + torch.sigmoid(self.mix_param) * input_grid
+        # Don't add residual for ATLAS - it should transform
+        # predicted_output = predicted_output  # Pure transformation
         
         return {
             'predicted_output': predicted_output,
@@ -483,12 +488,13 @@ class EnhancedIrisNet(nn.Module):
             nn.ConvTranspose2d(64, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
+            nn.Dropout2d(0.3),
             nn.ConvTranspose2d(32, 10, 1)
         )
         
-        # Initialize final layer
-        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
-        nn.init.zeros_(self.decoder[-1].bias)
+        # Initialize final layer for strong color changes
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=4.0)
+        nn.init.constant_(self.decoder[-1].bias, 0.3)
         
         self.description = "Enhanced Color Pattern Recognition with Attention"
         
@@ -594,18 +600,20 @@ class EnhancedChronosNet(nn.Module):
             nn.ConvTranspose2d(128 + 128, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
+            nn.Dropout2d(0.3),
             nn.ConvTranspose2d(128, 64, 3, padding=1),
             nn.BatchNorm2d(64), 
             nn.ReLU(),
+            nn.Dropout2d(0.2),
             nn.ConvTranspose2d(64, 10, 1)
         )
         
-        # Initialize final layer
-        nn.init.xavier_uniform_(self.decoder[-1].weight)
-        nn.init.zeros_(self.decoder[-1].bias)
+        # Initialize final layer with strong values
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=3.0)
+        nn.init.constant_(self.decoder[-1].bias, 0.2)
         
-        # Mix parameter  
-        self.mix_param = nn.Parameter(torch.tensor(0.5))
+        # Mix parameter - start low to favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.1))
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         
@@ -655,8 +663,9 @@ class EnhancedChronosNet(nn.Module):
         combined = torch.cat([last_frame_features, moved_features], dim=1)
         predicted_output = self.decoder(combined)
         
-        # Residual from last frame with gate
-        predicted_output = predicted_output + torch.sigmoid(self.mix_param) * sequence[-1]
+        # Minimal residual from last frame
+        mix = torch.sigmoid(self.mix_param)
+        predicted_output = predicted_output * (1 - mix) + sequence[-1] * mix
         
         return {
             'predicted_output': predicted_output,
@@ -674,8 +683,9 @@ class EnhancedChronosNet(nn.Module):
         combined = torch.cat([features, obj_features], dim=1)
         predicted_output = self.decoder(combined)
         
-        # Residual with gate
-        predicted_output = predicted_output + torch.sigmoid(self.mix_param) * input_grid
+        # Minimal residual
+        mix = torch.sigmoid(self.mix_param)
+        predicted_output = predicted_output * (1 - mix) + input_grid * mix
         
         return {
             'predicted_output': predicted_output,
@@ -746,18 +756,21 @@ class EnhancedPrometheusNet(nn.Module):
             nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
+            nn.Dropout2d(0.3),
             nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.Dropout2d(0.3),
             nn.ConvTranspose2d(64, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
+            nn.Dropout2d(0.2),
             nn.ConvTranspose2d(32, 10, 1)
         )
         
-        # Initialize final layer with higher gain
-        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
-        nn.init.zeros_(self.decoder[-1].bias)
+        # Initialize final layer for creative generation
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=5.0)
+        nn.init.constant_(self.decoder[-1].bias, 0.5)
         
         self.description = "Enhanced Creative Pattern Generation with VAE"
         

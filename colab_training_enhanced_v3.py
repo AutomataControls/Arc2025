@@ -93,10 +93,11 @@ DEVICE = device
 # IMPROVED LOSS WEIGHTS - FIXED FOR EXACT MATCH
 RECONSTRUCTION_WEIGHT = 1.0
 PATTERN_WEIGHT = 0.0  # Removed - not helping
-CONSISTENCY_WEIGHT = 0.05  # Reduced further
-EDGE_WEIGHT = 0.5  # INCREASED: Edge precision critical for exact match
-COLOR_BALANCE_WEIGHT = 0.3  # INCREASED: Must get colors exactly right
-STRUCTURE_WEIGHT = 0.4  # NEW: Added explicit structure weight
+CONSISTENCY_WEIGHT = 0.01  # Reduced even further
+EDGE_WEIGHT = 1.0  # DOUBLED: Edge precision critical for exact match
+COLOR_BALANCE_WEIGHT = 0.5  # INCREASED: Must get colors exactly right
+STRUCTURE_WEIGHT = 0.6  # INCREASED: Added explicit structure weight
+TRANSFORMATION_PENALTY = -0.2  # NEW: Penalty for being too similar to input
 
 print("\n⚙️ V3 Configuration:")
 print(f"  Batch size: {BATCH_SIZE} (effective: {BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS})")
@@ -126,7 +127,7 @@ class ImprovedReconstructionLoss(nn.Module):
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction='none')
         
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, input_grid: torch.Tensor = None) -> Dict[str, torch.Tensor]:
         B, C, H, W = pred.shape
         
         # Convert target to indices
@@ -165,11 +166,20 @@ class ImprovedReconstructionLoss(nn.Module):
         # 5. Structure preservation loss
         structure_loss = self._structure_loss(pred_colors, target_indices)
         
+        # 6. Transformation penalty - penalize if prediction is too similar to input
+        if input_grid is not None:
+            input_indices = input_grid.argmax(dim=1)  # Get actual input colors
+            similarity_to_input = (pred_colors == input_indices).float().mean()
+            transformation_penalty = similarity_to_input  # High similarity = high penalty
+        else:
+            transformation_penalty = 0.0
+        
         total_loss = (
             RECONSTRUCTION_WEIGHT * reconstruction_loss +
             COLOR_BALANCE_WEIGHT * color_balance_loss +
             CONSISTENCY_WEIGHT * consistency_loss +
-            STRUCTURE_WEIGHT * structure_loss  # Fixed: use STRUCTURE_WEIGHT not EDGE_WEIGHT
+            STRUCTURE_WEIGHT * structure_loss +
+            TRANSFORMATION_PENALTY * transformation_penalty  # Encourage transformation
         )
         
         return {
@@ -177,6 +187,7 @@ class ImprovedReconstructionLoss(nn.Module):
             'color_balance': color_balance_loss,
             'consistency': consistency_loss,
             'structure': structure_loss,
+            'transformation': transformation_penalty,
             'total': total_loss
         }
     
@@ -562,7 +573,7 @@ def train_enhanced_models_v3():
                         print(f"\nDEBUG {model_name}: output range [{pred_output.min():.3f}, {pred_output.max():.3f}]")
                         print(f"Output shape: {pred_output.shape}, Input shape: {input_grids.shape}")
                     
-                    losses = loss_fn(pred_output, output_grids)
+                    losses = loss_fn(pred_output, output_grids, input_grids)
                     loss = losses['total'] / GRADIENT_ACCUMULATION_STEPS
                 
                 scaler.scale(loss).backward()
@@ -613,7 +624,7 @@ def train_enhanced_models_v3():
                             print(f"WARNING: Invalid output shape {pred_output.shape}")
                             pred_output = torch.zeros(input_grids.shape).to(DEVICE)
                         
-                        losses = loss_fn(pred_output, output_grids)
+                        losses = loss_fn(pred_output, output_grids, input_grids)
                     
                     val_loss += losses['total'].item()
                     val_structure_sum += losses['structure'].item()
