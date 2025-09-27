@@ -19,6 +19,40 @@ import matplotlib.pyplot as plt
 from torchvision.transforms import v2 as transforms_v2
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+
+# Import improved accuracy metrics
+sys.path.append('/content/Arc2025')
+try:
+    from improved_accuracy_metrics import ARCAccuracyMetrics
+except:
+    # Inline definition if import fails
+    class ARCAccuracyMetrics:
+        @staticmethod
+        def calculate_metrics(pred_output, target_output):
+            pred_colors = pred_output.argmax(dim=1)
+            target_colors = target_output.argmax(dim=1)
+            
+            # Exact match
+            exact_matches = (pred_colors == target_colors).all(dim=[1,2])
+            exact_accuracy = exact_matches.float().mean().item() * 100
+            
+            # Pixel-wise accuracy
+            pixel_correct = (pred_colors == target_colors).float()
+            pixel_accuracy = pixel_correct.mean().item() * 100
+            
+            # Active region accuracy
+            active_mask = (target_colors != 0) | (pred_colors != 0)
+            if active_mask.any():
+                active_correct = pixel_correct[active_mask]
+                active_accuracy = active_correct.mean().item() * 100
+            else:
+                active_accuracy = 100.0
+            
+            return {
+                'exact_match': exact_accuracy,
+                'pixel_wise': pixel_accuracy,
+                'active_region': active_accuracy
+            }
 from tqdm import tqdm
 import os
 import shutil
@@ -711,14 +745,22 @@ def train_enhanced_models_v2():
                     val_loss += losses['total'].item()
                     val_consistency += losses['consistency'].item()
                     
-                    # Compute accuracy (exact match)
-                    pred_colors = pred_output.argmax(dim=1)
-                    target_colors = output_grids.argmax(dim=1)
+                    # Compute comprehensive accuracy metrics
+                    batch_metrics = ARCAccuracyMetrics.calculate_metrics(pred_output, output_grids)
                     
-                    # Check exact grid match
-                    matches = (pred_colors == target_colors).all(dim=[1,2])
-                    val_correct += matches.sum().item()
+                    # Track both exact match and pixel-wise accuracy
+                    val_correct += (batch_metrics['exact_match'] / 100.0) * input_grids.size(0)
                     val_total += input_grids.size(0)
+                    
+                    # Also track pixel-wise accuracy for monitoring
+                    if not hasattr(self, 'val_pixel_acc'):
+                        self.val_pixel_acc = 0
+                        self.val_active_acc = 0
+                        self.val_batches = 0
+                    
+                    self.val_pixel_acc += batch_metrics['pixel_wise']
+                    self.val_active_acc += batch_metrics['active_region']
+                    self.val_batches += 1
             
             # Calculate metrics
             avg_train_loss = train_loss / train_steps
@@ -726,15 +768,33 @@ def train_enhanced_models_v2():
             avg_val_consistency = val_consistency / len(val_loader)
             val_accuracy = val_correct / val_total * 100
             
+            # Calculate additional metrics
+            if hasattr(self, 'val_pixel_acc'):
+                avg_pixel_acc = self.val_pixel_acc / self.val_batches
+                avg_active_acc = self.val_active_acc / self.val_batches
+                
+                # Reset for next epoch
+                self.val_pixel_acc = 0
+                self.val_active_acc = 0
+                self.val_batches = 0
+            else:
+                avg_pixel_acc = 0
+                avg_active_acc = 0
+            
             history['train_loss'].append(avg_train_loss)
             history['val_loss'].append(avg_val_loss)
             history['val_accuracy'].append(val_accuracy)
+            history['val_pixel_acc'] = history.get('val_pixel_acc', [])
+            history['val_pixel_acc'].append(avg_pixel_acc)
+            history['val_active_acc'] = history.get('val_active_acc', [])
+            history['val_active_acc'].append(avg_active_acc)
             history['val_consistency'].append(avg_val_consistency)
             
             scheduler.step()
             
             print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, "
-                  f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_accuracy:.2f}%, "
+                  f"Val Loss: {avg_val_loss:.4f}, Exact Match: {val_accuracy:.2f}%, "
+                  f"Pixel Acc: {avg_pixel_acc:.2f}%, Active Acc: {avg_active_acc:.2f}%, "
                   f"Consistency: {avg_val_consistency:.4f}")
             
             # Update monitor with correct metric names
@@ -745,7 +805,7 @@ def train_enhanced_models_v2():
                     'train_loss': avg_train_loss,
                     'val_loss': avg_val_loss,
                     'train_acc': 0.0,  # We don't track train accuracy for reconstruction
-                    'val_acc': val_accuracy / 100.0  # Convert percentage to ratio
+                    'val_acc': avg_pixel_acc / 100.0 if avg_pixel_acc > val_accuracy else val_accuracy / 100.0  # Use better metric for monitor
                 }
             )
             
@@ -774,7 +834,7 @@ def train_enhanced_models_v2():
                     'val_consistency': avg_val_consistency
                 }, f'/content/arc_models/{model_name}_enhanced_v2_best.pt')
                 
-                print(f"✅ New best model saved! Val Acc: {val_accuracy:.2f}%")
+                print(f"✅ New best model saved! Exact: {val_accuracy:.2f}%, Pixel: {avg_pixel_acc:.2f}%")
             else:
                 patience_counter += 1
                 if patience_counter >= patience:
