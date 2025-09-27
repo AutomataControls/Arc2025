@@ -54,7 +54,7 @@ from Arc2025.models.arc_models_enhanced import create_enhanced_models
 from Arc2025.colab_monitor_integration import setup_colab_monitor
 
 # Enable mixed precision training for A100
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 
 # Verify models load correctly
 print("\n🔍 Verifying enhanced models...")
@@ -331,7 +331,7 @@ def train_enhanced_models():
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
         
         # Mixed precision scaler
-        scaler = GradScaler()
+        scaler = GradScaler('cuda')
         
         # Training history
         history = {
@@ -361,7 +361,7 @@ def train_enhanced_models():
                 optimizer.zero_grad()
                 
                 # Mixed precision forward pass
-                with autocast():
+                with autocast('cuda'):
                     # Forward pass
                     if model_name == 'chronos':
                         # CHRONOS expects a list of tensors for sequence processing
@@ -442,14 +442,16 @@ def train_enhanced_models():
                   f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_accuracy:.2f}%")
             
             # Update monitor
-            monitor.update({
-                'model': model_name,
-                'epoch': epoch + 1,
-                'train_loss': avg_train_loss,
-                'val_loss': avg_val_loss,
-                'val_accuracy': val_accuracy,
-                'lr': scheduler.get_last_lr()[0]
-            })
+            monitor.update(
+                epoch=epoch + 1,
+                metrics={
+                    'model': model_name,
+                    'train_loss': avg_train_loss,
+                    'val_loss': avg_val_loss,
+                    'val_accuracy': val_accuracy,
+                    'lr': scheduler.get_last_lr()[0]
+                }
+            )
             
             # Check if we hit 85% target
             if val_accuracy >= 85:
