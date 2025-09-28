@@ -26,10 +26,14 @@ class GridSizePredictorV2:
             self._try_exact_match_rule,
             self._try_consistent_size_rule,
             self._try_scaling_rule,
+            self._try_fractional_scaling_rule,
             self._try_object_based_rule,
             self._try_cropping_rule,
             self._try_color_count_rule,
             self._try_pattern_based_rule,
+            self._try_single_dimension_rule,
+            self._try_density_based_rule,
+            self._try_extreme_reduction_rule,
             self._try_median_fallback
         ]
         
@@ -241,6 +245,39 @@ class GridSizePredictorV2:
         
         return None
     
+    def _try_fractional_scaling_rule(self, input_grid: np.ndarray,
+                                    train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check for fractional scaling like 1.5x, 2.5x, 0.5x"""
+        h_scales = []
+        w_scales = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            if inp.shape[0] > 0 and inp.shape[1] > 0:
+                h_scale = out.shape[0] / inp.shape[0]
+                w_scale = out.shape[1] / inp.shape[1]
+                h_scales.append(h_scale)
+                w_scales.append(w_scale)
+        
+        if h_scales and w_scales:
+            # Check for common fractional scales
+            common_fractions = [0.5, 1.5, 2.5, 0.33, 0.66, 1.33, 1.66]
+            
+            for fraction in common_fractions:
+                h_matches = sum(abs(s - fraction) < 0.1 for s in h_scales)
+                w_matches = sum(abs(s - fraction) < 0.1 for s in w_scales)
+                
+                if h_matches >= len(h_scales) * 0.6 and w_matches >= len(w_scales) * 0.6:
+                    new_h = int(round(input_grid.shape[0] * fraction))
+                    new_w = int(round(input_grid.shape[1] * fraction))
+                    
+                    if 1 <= new_h <= 30 and 1 <= new_w <= 30:
+                        return (new_h, new_w)
+        
+        return None
+    
     def _try_pattern_based_rule(self, input_grid: np.ndarray,
                                train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
         """Check for pattern-based transformations"""
@@ -279,6 +316,90 @@ class GridSizePredictorV2:
                     return (input_grid.shape[0], input_w_period)
                 elif most_common == 'period_size' and input_h_period and input_w_period:
                     return (input_h_period, input_w_period)
+        
+        return None
+    
+    def _try_single_dimension_rule(self, input_grid: np.ndarray,
+                                  train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check if one dimension stays same while other changes"""
+        rules = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            if inp.shape[0] == out.shape[0]:
+                rules.append(('height_preserved', out.shape[1]))
+            elif inp.shape[1] == out.shape[1]:
+                rules.append(('width_preserved', out.shape[0]))
+        
+        if rules:
+            rule_counts = Counter([r[0] for r in rules])
+            
+            if rule_counts:
+                most_common = rule_counts.most_common(1)[0][0]
+                
+                if most_common == 'height_preserved':
+                    # Height stays same, find width pattern
+                    widths = [r[1] for r in rules if r[0] == 'height_preserved']
+                    if widths:
+                        return (input_grid.shape[0], int(np.median(widths)))
+                
+                elif most_common == 'width_preserved':
+                    # Width stays same, find height pattern
+                    heights = [r[1] for r in rules if r[0] == 'width_preserved']
+                    if heights:
+                        return (int(np.median(heights)), input_grid.shape[1])
+        
+        return None
+    
+    def _try_density_based_rule(self, input_grid: np.ndarray,
+                               train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size based on density of non-background pixels"""
+        density_rules = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # Calculate density
+            non_zero = np.count_nonzero(inp)
+            total = inp.shape[0] * inp.shape[1]
+            density = non_zero / total if total > 0 else 0
+            
+            # Check various relationships
+            if density > 0:
+                if abs(out.shape[0] - int(density * 30)) <= 2:
+                    density_rules.append(('height_from_density', density))
+                if abs(out.shape[1] - int(density * 30)) <= 2:
+                    density_rules.append(('width_from_density', density))
+        
+        if density_rules:
+            rule_counts = Counter([r[0] for r in density_rules])
+            
+            if rule_counts:
+                # Calculate input density
+                input_non_zero = np.count_nonzero(input_grid)
+                input_total = input_grid.shape[0] * input_grid.shape[1]
+                input_density = input_non_zero / input_total if input_total > 0 else 0
+                
+                if input_density > 0:
+                    predicted_size = int(input_density * 30)
+                    if 1 <= predicted_size <= 30:
+                        return (predicted_size, predicted_size)
+        
+        return None
+    
+    def _try_extreme_reduction_rule(self, input_grid: np.ndarray,
+                                   train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check for extreme reductions like input -> 1x1"""
+        for ex in train_examples:
+            out = np.array(ex['output'])
+            
+            # Check for 1x1 outputs
+            if out.shape == (1, 1):
+                # This might be a "find the dominant color" type task
+                return (1, 1)
         
         return None
     

@@ -114,12 +114,32 @@ class OLYMPUSRunner:
         for i, test_input in enumerate(test_inputs):
             print(f"\n📋 Test case {i+1}/{len(test_inputs)}")
             
-            # Get prediction
-            result = self.predict(test_input, train_examples)
+            # First attempt: Full pipeline with heuristics
+            result_with_heur = self.predict(test_input, train_examples, apply_heuristics=True)
+            attempt_1 = result_with_heur['prediction']
             
-            # For now, return same prediction twice (can enhance later)
-            pred = result['prediction']
-            predictions.append([pred, pred])
+            # Second attempt: Raw highest-weighted model without heuristics
+            # Get all model predictions
+            model_predictions = self.ensemble.predict_all_models_with_shape(
+                test_input, train_examples
+            )
+            
+            # Use task router to get weights
+            weights = self.router.get_model_weights(test_input, train_examples)
+            
+            # Find highest weighted model
+            best_model = max(weights.items(), key=lambda x: x[1])[0]
+            attempt_2 = model_predictions.get(best_model, attempt_1)
+            
+            # If both attempts are the same, try the second-best model
+            if np.array_equal(attempt_1, attempt_2) and len(weights) > 1:
+                sorted_models = sorted(weights.items(), key=lambda x: x[1], reverse=True)
+                if len(sorted_models) > 1:
+                    second_best_model = sorted_models[1][0]
+                    attempt_2 = model_predictions.get(second_best_model, attempt_1)
+            
+            predictions.append([attempt_1, attempt_2])
+            print(f"  ✅ Two attempts generated (heuristic + raw best model)")
         
         return predictions
     
