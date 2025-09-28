@@ -11,7 +11,7 @@ import sys
 
 sys.path.append('/content/Arc2025')
 from ensemble_test_bench import OLYMPUSEnsemble
-from grid_size_predictor import GridSizePredictor
+from grid_size_predictor_v2 import GridSizePredictorV2
 
 
 class OLYMPUSEnsembleV2(OLYMPUSEnsemble):
@@ -19,7 +19,7 @@ class OLYMPUSEnsembleV2(OLYMPUSEnsemble):
     
     def __init__(self, model_dir: str = '/content/arc_models_v4'):
         super().__init__(model_dir)
-        self.size_predictor = GridSizePredictor()
+        self.size_predictor = GridSizePredictorV2()
     
     def predict_all_models_with_shape(self, input_grid: np.ndarray, 
                                      train_examples: List[Dict]) -> Dict[str, np.ndarray]:
