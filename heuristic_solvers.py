@@ -351,6 +351,130 @@ class PatternCompletionSolver(HeuristicSolver):
         return fixed_grid
 
 
+class SinglePixelFixer(HeuristicSolver):
+    """Fix isolated missing or extra pixels"""
+    
+    def __init__(self):
+        super().__init__("SinglePixelFixer")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Always try this for high-accuracy predictions"""
+        return True
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Fix isolated pixels that don't match neighbors"""
+        fixed_grid = pred_grid.copy()
+        h, w = fixed_grid.shape
+        
+        for i in range(h):
+            for j in range(w):
+                # Count neighbor colors
+                neighbors = []
+                for di, dj in [(-1,0), (1,0), (0,-1), (0,1)]:
+                    ni, nj = i + di, j + dj
+                    if 0 <= ni < h and 0 <= nj < w:
+                        neighbors.append(fixed_grid[ni, nj])
+                
+                if neighbors:
+                    # If all neighbors agree and differ from current
+                    if len(set(neighbors)) == 1 and neighbors[0] != fixed_grid[i, j]:
+                        # Consider fixing if this creates more consistency
+                        if neighbors.count(neighbors[0]) >= 3:
+                            fixed_grid[i, j] = neighbors[0]
+        
+        return fixed_grid
+
+
+class EdgeCompleter(HeuristicSolver):
+    """Complete partial edges and borders"""
+    
+    def __init__(self):
+        super().__init__("EdgeCompleter")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs have consistent edges"""
+        edge_count = 0
+        for example in train_examples:
+            output = np.array(example['output'])
+            # Check if output has consistent edge colors
+            edges = [output[0, :], output[-1, :], output[:, 0], output[:, -1]]
+            for edge in edges:
+                if len(np.unique(edge)) == 1 and edge[0] != 0:
+                    edge_count += 1
+        return edge_count > len(train_examples)
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Complete partial edges"""
+        fixed_grid = pred_grid.copy()
+        h, w = fixed_grid.shape
+        
+        # Check each edge for near-completion
+        edges = [
+            (fixed_grid[0, :], 0, 'horizontal'),
+            (fixed_grid[-1, :], h-1, 'horizontal'),
+            (fixed_grid[:, 0], 0, 'vertical'),
+            (fixed_grid[:, -1], w-1, 'vertical')
+        ]
+        
+        for edge, pos, direction in edges:
+            colors = edge[edge != 0]  # Non-background colors
+            if len(colors) > 0:
+                # If edge is mostly one color (80%+)
+                unique_colors, counts = np.unique(colors, return_counts=True)
+                if len(unique_colors) > 0:
+                    dominant_color = unique_colors[np.argmax(counts)]
+                    if np.max(counts) / len(colors) > 0.8:
+                        # Complete the edge
+                        if direction == 'horizontal':
+                            fixed_grid[pos, :] = dominant_color
+                        else:
+                            fixed_grid[:, pos] = dominant_color
+        
+        return fixed_grid
+
+
+class HolesFiller(HeuristicSolver):
+    """Fill small holes in objects"""
+    
+    def __init__(self):
+        super().__init__("HolesFiller")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs have solid objects"""
+        return True
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Fill holes in objects"""
+        fixed_grid = pred_grid.copy()
+        
+        # For each color, check for holes
+        for color in np.unique(pred_grid):
+            if color == 0:  # Skip background
+                continue
+            
+            # Create mask for this color
+            mask = (pred_grid == color).astype(int)
+            
+            # Fill holes using morphological closing
+            filled = ndimage.binary_fill_holes(mask).astype(int)
+            
+            # Only fill small holes (1-2 pixels)
+            diff = filled - mask
+            hole_size = np.sum(diff)
+            
+            if 0 < hole_size <= 2:
+                # Fill the holes with the object color
+                fixed_grid[diff == 1] = color
+        
+        return fixed_grid
+
+
 class HeuristicPipeline:
     """Apply multiple heuristics in sequence"""
     
@@ -359,6 +483,9 @@ class HeuristicPipeline:
             ColorPaletteSolver(),      # First ensure valid colors
             GridSizeSolver(),          # Then fix size
             ObjectIntegritySolver(),   # Clean up objects
+            SinglePixelFixer(),        # Fix isolated pixels (NEW)
+            HolesFiller(),             # Fill small holes (NEW)
+            EdgeCompleter(),           # Complete edges (NEW)
             SymmetrySolver(),          # Apply symmetry if needed
             PatternCompletionSolver()  # Complete patterns
         ]
