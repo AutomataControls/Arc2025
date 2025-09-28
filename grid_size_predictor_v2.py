@@ -10,7 +10,7 @@ from scipy import ndimage
 from collections import Counter
 
 
-class GridSizePredictorV3:
+class GridSizePredictorV2:
     """Comprehensive predictor with exhaustive shape rules based on evaluation patterns"""
     
     def __init__(self):
@@ -717,10 +717,10 @@ class GridSizePredictorV3:
 
 if __name__ == "__main__":
     # Test the enhanced predictor
-    predictor = GridSizePredictorV3()
+    predictor = GridSizePredictorV2()
     predictor.debug = True
     
-    print("Testing Enhanced Grid Size Predictor V3")
+    print("Testing Enhanced Grid Size Predictor V2 with V3 features")
     print("=" * 50)
     
     # Test 1: Object bounding box
