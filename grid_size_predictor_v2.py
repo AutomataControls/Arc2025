@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Grid Size Predictor V2 - Advanced Shape Analysis
-Implements object-based and content-aware rules for accurate output shape prediction
+Grid Size Predictor V3 - Comprehensive Shape Analysis
+Implements exhaustive shape prediction rules based on evaluation analysis
 """
 
 import numpy as np
@@ -10,8 +10,8 @@ from scipy import ndimage
 from collections import Counter
 
 
-class GridSizePredictorV2:
-    """Advanced predictor that analyzes objects and content to determine output shape"""
+class GridSizePredictorV3:
+    """Comprehensive predictor with exhaustive shape rules based on evaluation patterns"""
     
     def __init__(self):
         self.debug = False
@@ -34,6 +34,13 @@ class GridSizePredictorV2:
             self._try_single_dimension_rule,
             self._try_density_based_rule,
             self._try_extreme_reduction_rule,
+            self._try_transpose_rule,
+            self._try_minus_one_rule,
+            self._try_specific_size_rule,
+            self._try_aspect_ratio_rule,
+            self._try_hole_count_rule,
+            self._try_line_count_rule,
+            self._try_symmetry_based_rule,
             self._try_median_fallback
         ]
         
@@ -422,6 +429,209 @@ class GridSizePredictorV2:
         
         return None
     
+    def _try_transpose_rule(self, input_grid: np.ndarray,
+                          train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check if output is transposed input"""
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            if out.shape == (inp.shape[1], inp.shape[0]):
+                return (input_grid.shape[1], input_grid.shape[0])
+        
+        return None
+    
+    def _try_minus_one_rule(self, input_grid: np.ndarray,
+                           train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check if output is input size minus 1 in one or both dimensions"""
+        rules = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            if out.shape == (inp.shape[0] - 1, inp.shape[1] - 1):
+                rules.append('both_minus_one')
+            elif out.shape == (inp.shape[0] - 1, inp.shape[1]):
+                rules.append('height_minus_one')
+            elif out.shape == (inp.shape[0], inp.shape[1] - 1):
+                rules.append('width_minus_one')
+        
+        if rules:
+            rule_counts = Counter(rules)
+            most_common = rule_counts.most_common(1)[0][0]
+            
+            if most_common == 'both_minus_one':
+                return (max(1, input_grid.shape[0] - 1), max(1, input_grid.shape[1] - 1))
+            elif most_common == 'height_minus_one':
+                return (max(1, input_grid.shape[0] - 1), input_grid.shape[1])
+            elif most_common == 'width_minus_one':
+                return (input_grid.shape[0], max(1, input_grid.shape[1] - 1))
+        
+        return None
+    
+    def _try_specific_size_rule(self, input_grid: np.ndarray,
+                              train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check for specific common output sizes"""
+        common_sizes = [(3, 3), (4, 4), (2, 2), (3, 1), (1, 3), (2, 3), (3, 2)]
+        
+        for size in common_sizes:
+            all_match = all(np.array(ex['output']).shape == size for ex in train_examples)
+            if all_match:
+                return size
+        
+        return None
+    
+    def _try_aspect_ratio_rule(self, input_grid: np.ndarray,
+                             train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Preserve aspect ratio while changing size"""
+        ratios = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            if inp.shape[0] > 0 and out.shape[0] > 0:
+                # Calculate how output relates to input while preserving ratio
+                scale = out.shape[0] / inp.shape[0]
+                expected_w = int(round(inp.shape[1] * scale))
+                if abs(out.shape[1] - expected_w) <= 1:
+                    ratios.append(scale)
+        
+        if ratios and len(ratios) >= len(train_examples) * 0.8:
+            avg_scale = np.mean(ratios)
+            new_h = int(round(input_grid.shape[0] * avg_scale))
+            new_w = int(round(input_grid.shape[1] * avg_scale))
+            if 1 <= new_h <= 30 and 1 <= new_w <= 30:
+                return (new_h, new_w)
+        
+        return None
+    
+    def _try_hole_count_rule(self, input_grid: np.ndarray,
+                           train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size based on number of holes/enclosed regions"""
+        rules = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # Count holes (background regions completely enclosed)
+            holes = self._count_holes(inp)
+            
+            if holes > 0:
+                if out.shape == (holes, holes):
+                    rules.append('square_holes')
+                elif out.shape[0] == holes:
+                    rules.append('height_equals_holes')
+                elif out.shape[1] == holes:
+                    rules.append('width_equals_holes')
+        
+        if rules:
+            rule_counts = Counter(rules)
+            most_common = rule_counts.most_common(1)[0][0]
+            
+            input_holes = self._count_holes(input_grid)
+            if input_holes > 0:
+                if most_common == 'square_holes':
+                    return (input_holes, input_holes)
+                elif most_common == 'height_equals_holes':
+                    return (input_holes, input_grid.shape[1])
+                elif most_common == 'width_equals_holes':
+                    return (input_grid.shape[0], input_holes)
+        
+        return None
+    
+    def _try_line_count_rule(self, input_grid: np.ndarray,
+                           train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size based on number of lines (horizontal/vertical)"""
+        rules = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            h_lines = self._count_horizontal_lines(inp)
+            v_lines = self._count_vertical_lines(inp)
+            
+            if out.shape == (h_lines, v_lines) and h_lines > 0 and v_lines > 0:
+                rules.append('h_by_v_lines')
+            elif out.shape[0] == h_lines and h_lines > 0:
+                rules.append('height_equals_h_lines')
+            elif out.shape[1] == v_lines and v_lines > 0:
+                rules.append('width_equals_v_lines')
+        
+        if rules:
+            rule_counts = Counter(rules)
+            most_common = rule_counts.most_common(1)[0][0]
+            
+            input_h_lines = self._count_horizontal_lines(input_grid)
+            input_v_lines = self._count_vertical_lines(input_grid)
+            
+            if most_common == 'h_by_v_lines' and input_h_lines > 0 and input_v_lines > 0:
+                return (input_h_lines, input_v_lines)
+            elif most_common == 'height_equals_h_lines' and input_h_lines > 0:
+                return (input_h_lines, input_grid.shape[1])
+            elif most_common == 'width_equals_v_lines' and input_v_lines > 0:
+                return (input_grid.shape[0], input_v_lines)
+        
+        return None
+    
+    def _try_symmetry_based_rule(self, input_grid: np.ndarray,
+                               train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size based on symmetry properties"""
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # Check if output is half of input (folding along axis)
+            if out.shape == (inp.shape[0] // 2, inp.shape[1]):
+                if input_grid.shape[0] % 2 == 0:
+                    return (input_grid.shape[0] // 2, input_grid.shape[1])
+            elif out.shape == (inp.shape[0], inp.shape[1] // 2):
+                if input_grid.shape[1] % 2 == 0:
+                    return (input_grid.shape[0], input_grid.shape[1] // 2)
+        
+        return None
+    
+    def _count_holes(self, grid: np.ndarray) -> int:
+        """Count number of enclosed background regions"""
+        # Create binary mask (0 for background, 1 for any color)
+        binary = (grid != 0).astype(int)
+        
+        # Invert to find background regions
+        inverted = 1 - binary
+        
+        # Label connected components
+        labeled, num_features = ndimage.label(inverted, structure=np.ones((3,3)))
+        
+        # Count internal holes (not touching border)
+        holes = 0
+        for i in range(1, num_features + 1):
+            component = (labeled == i)
+            # Check if component touches border
+            if not (component[0,:].any() or component[-1,:].any() or 
+                    component[:,0].any() or component[:,-1].any()):
+                holes += 1
+        
+        return holes
+    
+    def _count_horizontal_lines(self, grid: np.ndarray) -> int:
+        """Count continuous horizontal lines of non-background pixels"""
+        count = 0
+        for row in grid:
+            if np.any(row != 0) and np.all(row == row[row != 0][0]):
+                count += 1
+        return count
+    
+    def _count_vertical_lines(self, grid: np.ndarray) -> int:
+        """Count continuous vertical lines of non-background pixels"""
+        count = 0
+        for col in grid.T:
+            if np.any(col != 0) and np.all(col == col[col != 0][0]):
+                count += 1
+        return count
+    
     # Helper methods
     def _extract_objects(self, grid: np.ndarray) -> List[Dict]:
         """Extract all objects (connected components) from grid"""
@@ -507,10 +717,10 @@ class GridSizePredictorV2:
 
 if __name__ == "__main__":
     # Test the enhanced predictor
-    predictor = GridSizePredictorV2()
+    predictor = GridSizePredictorV3()
     predictor.debug = True
     
-    print("Testing Enhanced Grid Size Predictor V2")
+    print("Testing Enhanced Grid Size Predictor V3")
     print("=" * 50)
     
     # Test 1: Object bounding box
