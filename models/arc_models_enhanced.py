@@ -73,16 +73,16 @@ class ObjectEncoder(nn.Module):
         self.object_conv = nn.Conv2d(hidden_dim, 1, 1)
         
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        # Extract features
-        h = F.relu(self.conv1(x))
-        h = F.relu(self.conv2(h))
-        features = self.conv3(h)
+        # Extract features with residual connections
+        h1 = F.relu(self.conv1(x))
+        h2 = F.relu(self.conv2(h1))
+        features = self.conv3(h2)
         
-        # Detect objects
-        object_masks = torch.sigmoid(self.object_conv(features))
+        # Detect objects with stronger activation
+        object_masks = torch.sigmoid(self.object_conv(features) * 2.0)  # Scale up for sharper masks
         
-        # Masked features
-        object_features = features * object_masks
+        # Masked features with residual
+        object_features = features * object_masks + features * 0.2  # Keep some global features
         
         return object_features, object_masks
 
@@ -202,14 +202,17 @@ class EnhancedMinervaNet(nn.Module):
         # Transformation learning
         self.transform_predictor = TransformationPredictor(hidden_dim)
         
-        # Memory bank for pattern storage
-        self.pattern_memory = nn.Parameter(torch.randn(100, hidden_dim))
+        # Memory bank for pattern storage - initialize with more diverse patterns
+        self.pattern_memory = nn.Parameter(torch.randn(200, hidden_dim) * 0.5)
+        
+        # Pattern attention for better matching
+        self.pattern_attention = nn.MultiheadAttention(hidden_dim, num_heads=4, batch_first=True)
         
         # Transform projection layer
         self.transform_proj = nn.Linear(128, hidden_dim)
         
-        # Simple mixing parameter - start at 0.2 to favor transformations more
-        self.mix_param = nn.Parameter(torch.tensor(0.2))
+        # Simple mixing parameter - start at 0.05 to heavily favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.05))
         
         # Output decoder - predicts actual output grid
         self.decoder = nn.Sequential(
@@ -225,12 +228,12 @@ class EnhancedMinervaNet(nn.Module):
             # NO SOFTMAX - CrossEntropyLoss expects raw logits
         )
         
-        # Initialize final layer with moderate values for stability
-        # Use xavier for balanced initialization
-        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=1.5)
+        # Initialize final layer with stronger values for more decisive predictions
+        # Use xavier with higher gain for bolder outputs
+        nn.init.xavier_uniform_(self.decoder[-1].weight, gain=2.0)
         # Initialize bias to encourage all colors equally
         # Give all colors including background equal chance
-        bias_values = torch.ones(10) * 0.05  # Small equal bias for all
+        bias_values = torch.ones(10) * 0.1  # Larger bias for stronger predictions
         self.decoder[-1].bias.data = bias_values
         
         self.description = "Enhanced Strategic Pattern Analysis with Grid Reasoning"
@@ -263,9 +266,9 @@ class EnhancedMinervaNet(nn.Module):
             # Sigmoid to keep in [0, 1] range - but favor the prediction!
             mix = torch.sigmoid(self.mix_param)
             
-            # During training, use less input mixing to learn transformations
+            # During training, use even less input mixing to learn transformations
             if self.training:
-                mix = mix * 0.5  # Reduce input contribution by 50% during training
+                mix = mix * 0.2  # Reduce input contribution by 80% during training
                 
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
@@ -284,11 +287,11 @@ class EnhancedMinervaNet(nn.Module):
             # Mix prediction with input
             mix = torch.sigmoid(self.mix_param)
             
-            # During inference, balance transformation and stability
+            # During inference, still favor the transformation heavily
             if self.training:
-                mix = mix * 0.5
+                mix = mix * 0.2
             else:
-                mix = mix * 0.6
+                mix = mix * 0.3
                 
             predicted_output = predicted_output * (1 - mix) + input_grid * mix  # Inverted to favor prediction
             
@@ -308,28 +311,44 @@ class EnhancedMinervaNet(nn.Module):
         # Use transform params to modulate features
         transform_matrix = transform_params.view(B, C, 1, 1)
         
-        # Apply STRONGER transformation - use tanh for wider range [-1, 1]
+        # Apply EVEN STRONGER transformation - use tanh for wider range [-1, 1]
         # Then scale up to allow big changes
-        transformed = features * (1.0 + 2.0 * torch.tanh(transform_matrix))
+        transformed = features * (1.0 + 3.0 * torch.tanh(transform_matrix))
         
         return transformed
     
     def _find_best_pattern(self, features: torch.Tensor) -> torch.Tensor:
-        """Find best matching pattern from memory"""
+        """Find best matching pattern from memory using attention"""
         B = features.shape[0]
         
-        # Compare with pattern memory
-        features_pooled = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)
+        # Pool features for comparison
+        features_pooled = F.adaptive_avg_pool2d(features, 1).squeeze(-1).squeeze(-1)  # B, hidden_dim
+        
+        # Use attention to find best patterns
+        query = features_pooled.unsqueeze(1)  # B, 1, hidden_dim
+        keys = self.pattern_memory.unsqueeze(0).expand(B, -1, -1)  # B, 200, hidden_dim
+        
+        # Apply pattern attention
+        attended_patterns, attention_weights = self.pattern_attention(query, keys, keys)
+        attended_patterns = attended_patterns.squeeze(1)  # B, hidden_dim
+        
+        # Also get top-k patterns for diversity
         similarity = F.cosine_similarity(features_pooled.unsqueeze(1), self.pattern_memory.unsqueeze(0), dim=2)
+        top_k_values, top_k_idx = similarity.topk(3, dim=1)
         
-        # Get best matches
-        best_idx = similarity.argmax(dim=1)
-        best_patterns = self.pattern_memory[best_idx]
+        # Weighted combination of top patterns
+        weighted_patterns = torch.zeros_like(attended_patterns)
+        for i in range(3):
+            weight = F.softmax(top_k_values, dim=1)[:, i:i+1]
+            pattern_idx = top_k_idx[:, i]
+            weighted_patterns += weight * self.pattern_memory[pattern_idx]
         
-        # Return as if they were transform parameters (will be projected to correct size)
-        # Create dummy transform params
+        # Combine attended and weighted patterns
+        combined_patterns = 0.7 * attended_patterns + 0.3 * weighted_patterns
+        
+        # Return as transform parameters
         transform_params = torch.zeros(B, 128).to(features.device)
-        transform_params[:, :min(128, best_patterns.shape[1])] = best_patterns[:, :min(128, best_patterns.shape[1])]
+        transform_params[:, :min(128, combined_patterns.shape[1])] = combined_patterns[:, :min(128, combined_patterns.shape[1])]
         
         return transform_params
 
@@ -394,8 +413,8 @@ class EnhancedAtlasNet(nn.Module):
         self.fc_loc[-1].weight.data.zero_()
         self.fc_loc[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         
-        # Mix parameter - start at 0.2 to favor transformations
-        self.mix_param = nn.Parameter(torch.tensor(0.2))
+        # Mix parameter - start at 0.05 to heavily favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.05))
         
         self.description = "Enhanced Spatial Transformer with Rotation/Reflection"
         
@@ -434,9 +453,9 @@ class EnhancedAtlasNet(nn.Module):
         # Add minimal residual for ATLAS to prevent collapse
         mix = torch.sigmoid(self.mix_param)
         if self.training:
-            mix = mix * 0.7  # Use more residual for ATLAS
+            mix = mix * 0.2  # Use much less residual for ATLAS
         else:
-            mix = mix * 0.8
+            mix = mix * 0.3
         predicted_output = predicted_output * (1 - mix) + input_grid * mix
         
         return {
@@ -635,8 +654,8 @@ class EnhancedChronosNet(nn.Module):
         # Equal small bias for CHRONOS
         self.decoder[-1].bias.data = torch.ones(10) * 0.05
         
-        # Mix parameter - start at 0.2 to favor transformations
-        self.mix_param = nn.Parameter(torch.tensor(0.2))
+        # Mix parameter - start at 0.05 to heavily favor transformations
+        self.mix_param = nn.Parameter(torch.tensor(0.05))
         
         self.description = "Enhanced Temporal Sequence Analysis with Attention"
         
