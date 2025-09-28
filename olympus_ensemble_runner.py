@@ -300,7 +300,7 @@ if __name__ == "__main__":
     if args.evaluate:
         olympus = OLYMPUSRunner()
         results = olympus.evaluate_on_training_set(
-            '/content/arc-agi_training_challenges.json',
+            '/content/Arc2025/data/arc-agi_training_challenges.json',
             n_tasks=args.n_tasks
         )
     

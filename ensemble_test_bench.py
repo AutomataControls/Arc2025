@@ -299,7 +299,7 @@ def test_ensemble_on_task(ensemble: OLYMPUSEnsemble, task_data: dict, task_id: s
 
 
 def run_validation_test(model_dir: str = '/content/arc_models_v4', 
-                       data_path: str = '/content/arc-agi_training_challenges.json',
+                       data_path: str = '/content/Arc2025/data/arc-agi_training_challenges.json',
                        n_tasks: int = 20):
     """Run validation test on random tasks"""
     
