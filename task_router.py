@@ -352,8 +352,11 @@ class SmartEnsemble:
             explanation = self.router.explain_routing(characteristics, weights)
             print(f"\n🧭 Task Routing: {explanation}")
         
-        # Get all model predictions
-        predictions = self.ensemble.predict_all_models(input_grid)
+        # Get all model predictions with correct shape
+        if hasattr(self.ensemble, 'predict_all_models_with_shape'):
+            predictions = self.ensemble.predict_all_models_with_shape(input_grid, train_examples)
+        else:
+            predictions = self.ensemble.predict_all_models(input_grid)
         
         # Apply weighted voting with task-specific weights
         grid_scores = {}

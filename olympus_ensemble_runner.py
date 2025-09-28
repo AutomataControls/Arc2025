@@ -17,6 +17,7 @@ sys.path.append('/content/Arc2025')
 sys.path.append('/content/Arc2025/models')
 
 from ensemble_test_bench import OLYMPUSEnsemble
+from ensemble_with_size_prediction import OLYMPUSEnsembleV2
 from task_router import TaskRouter, SmartEnsemble
 from heuristic_solvers import HeuristicPipeline
 
@@ -27,8 +28,8 @@ class OLYMPUSRunner:
     def __init__(self, model_dir: str = '/content/arc_models_v4'):
         print("🏛️ Initializing OLYMPUS Complete System...")
         
-        # Load base ensemble
-        self.ensemble = OLYMPUSEnsemble(model_dir)
+        # Load enhanced ensemble with size prediction
+        self.ensemble = OLYMPUSEnsembleV2(model_dir)
         
         # Initialize task router
         self.router = TaskRouter()
