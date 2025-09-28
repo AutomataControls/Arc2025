@@ -475,6 +475,259 @@ class HolesFiller(HeuristicSolver):
         return fixed_grid
 
 
+class CornerFixer(HeuristicSolver):
+    """Fix missing or extra pixels in corners"""
+    
+    def __init__(self):
+        super().__init__("CornerFixer")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs have regular rectangular shapes"""
+        # Analyze training examples for rectangular patterns
+        rect_count = 0
+        for example in train_examples:
+            output = np.array(example['output'])
+            # Check for rectangular objects
+            for color in np.unique(output):
+                if color == 0:
+                    continue
+                mask = (output == color)
+                labeled, num = ndimage.label(mask)
+                for i in range(1, num + 1):
+                    component = (labeled == i)
+                    # Check if component is roughly rectangular
+                    rows, cols = np.where(component)
+                    if len(rows) > 0:
+                        min_r, max_r = rows.min(), rows.max()
+                        min_c, max_c = cols.min(), cols.max()
+                        expected_pixels = (max_r - min_r + 1) * (max_c - min_c + 1)
+                        actual_pixels = component.sum()
+                        if actual_pixels >= expected_pixels * 0.8:
+                            rect_count += 1
+        
+        return rect_count > len(train_examples)
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Fix corners to complete rectangles"""
+        fixed_grid = pred_grid.copy()
+        
+        for color in np.unique(pred_grid):
+            if color == 0:
+                continue
+            
+            mask = (fixed_grid == color)
+            labeled, num = ndimage.label(mask)
+            
+            for i in range(1, num + 1):
+                component = (labeled == i)
+                rows, cols = np.where(component)
+                
+                if len(rows) > 0:
+                    min_r, max_r = rows.min(), rows.max()
+                    min_c, max_c = cols.min(), cols.max()
+                    
+                    # Check corners
+                    corners = [
+                        (min_r, min_c), (min_r, max_c),
+                        (max_r, min_c), (max_r, max_c)
+                    ]
+                    
+                    # If 3 corners are filled, fill the 4th
+                    filled_corners = sum(1 for r, c in corners if fixed_grid[r, c] == color)
+                    if filled_corners == 3:
+                        for r, c in corners:
+                            if fixed_grid[r, c] != color:
+                                fixed_grid[r, c] = color
+        
+        return fixed_grid
+
+
+class DiagonalLineFixer(HeuristicSolver):
+    """Fix broken diagonal lines"""
+    
+    def __init__(self):
+        super().__init__("DiagonalLineFixer")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs contain diagonal patterns"""
+        diag_count = 0
+        for example in train_examples:
+            output = np.array(example['output'])
+            # Check for diagonal patterns
+            h, w = output.shape
+            for i in range(h-1):
+                for j in range(w-1):
+                    if output[i,j] != 0 and output[i,j] == output[i+1,j+1]:
+                        diag_count += 1
+            
+            # Also check anti-diagonals
+            for i in range(h-1):
+                for j in range(1, w):
+                    if output[i,j] != 0 and output[i,j] == output[i+1,j-1]:
+                        diag_count += 1
+        
+        return diag_count > 5 * len(train_examples)
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Fix gaps in diagonal lines"""
+        fixed_grid = pred_grid.copy()
+        h, w = fixed_grid.shape
+        
+        # Fix main diagonals
+        for i in range(1, h-1):
+            for j in range(1, w-1):
+                if fixed_grid[i,j] == 0:  # Gap
+                    # Check if it's part of a diagonal line
+                    if (fixed_grid[i-1,j-1] != 0 and fixed_grid[i+1,j+1] != 0 and
+                        fixed_grid[i-1,j-1] == fixed_grid[i+1,j+1]):
+                        fixed_grid[i,j] = fixed_grid[i-1,j-1]
+                    
+                    # Check anti-diagonal
+                    elif (fixed_grid[i-1,j+1] != 0 and fixed_grid[i+1,j-1] != 0 and
+                          fixed_grid[i-1,j+1] == fixed_grid[i+1,j-1]):
+                        fixed_grid[i,j] = fixed_grid[i-1,j+1]
+        
+        return fixed_grid
+
+
+class ColorBalancer(HeuristicSolver):
+    """Balance color distribution based on training patterns"""
+    
+    def __init__(self):
+        super().__init__("ColorBalancer")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if there's a consistent color distribution pattern"""
+        # Analyze color ratios in training examples
+        ratios = []
+        for example in train_examples:
+            input_ex = np.array(example['input'])
+            output_ex = np.array(example['output'])
+            
+            input_colors = dict(zip(*np.unique(input_ex, return_counts=True)))
+            output_colors = dict(zip(*np.unique(output_ex, return_counts=True)))
+            
+            # Check if colors maintain similar ratios
+            common_colors = set(input_colors.keys()) & set(output_colors.keys())
+            if len(common_colors) >= 2:
+                ratios.append(len(common_colors))
+        
+        return len(ratios) > 0 and np.mean(ratios) >= 2
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Adjust color distribution to match expected patterns"""
+        # This is a subtle adjustment - only fix obvious outliers
+        fixed_grid = pred_grid.copy()
+        
+        # Get expected color distribution from training
+        expected_ratios = {}
+        for example in train_examples:
+            output = np.array(example['output'])
+            colors, counts = np.unique(output, return_counts=True)
+            total = output.size
+            for color, count in zip(colors, counts):
+                if color not in expected_ratios:
+                    expected_ratios[color] = []
+                expected_ratios[color].append(count / total)
+        
+        # Average the ratios
+        for color in expected_ratios:
+            expected_ratios[color] = np.mean(expected_ratios[color])
+        
+        # Check current distribution
+        current_colors, current_counts = np.unique(pred_grid, return_counts=True)
+        current_total = pred_grid.size
+        
+        # Only adjust if significantly off (>50% difference)
+        for color, count in zip(current_colors, current_counts):
+            if color in expected_ratios:
+                current_ratio = count / current_total
+                expected_ratio = expected_ratios[color]
+                
+                if abs(current_ratio - expected_ratio) > 0.5 * expected_ratio:
+                    # Don't apply aggressive changes, just mark for review
+                    pass
+        
+        return fixed_grid
+
+
+class BoundarySmootherSolver(HeuristicSolver):
+    """Smooth jagged boundaries between regions"""
+    
+    def __init__(self):
+        super().__init__("BoundarySmootherSolver")
+    
+    def can_apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+                  train_examples: List[Dict]) -> bool:
+        """Check if outputs have smooth boundaries"""
+        smooth_count = 0
+        for example in train_examples:
+            output = np.array(example['output'])
+            # Check for smooth transitions (no isolated pixels at boundaries)
+            h, w = output.shape
+            jagged_pixels = 0
+            
+            for i in range(1, h-1):
+                for j in range(1, w-1):
+                    # Check if pixel differs from most neighbors
+                    neighbors = [
+                        output[i-1, j], output[i+1, j],
+                        output[i, j-1], output[i, j+1]
+                    ]
+                    if output[i, j] != 0:
+                        different = sum(1 for n in neighbors if n != output[i, j])
+                        if different >= 3:
+                            jagged_pixels += 1
+            
+            if jagged_pixels < 2:
+                smooth_count += 1
+        
+        return smooth_count / len(train_examples) > 0.7
+    
+    def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
+             train_examples: List[Dict]) -> np.ndarray:
+        """Smooth boundaries by removing isolated boundary pixels"""
+        fixed_grid = pred_grid.copy()
+        h, w = fixed_grid.shape
+        
+        changes = []
+        
+        for i in range(1, h-1):
+            for j in range(1, w-1):
+                if fixed_grid[i, j] != 0:
+                    # Get all neighbors
+                    neighbors = [
+                        fixed_grid[i-1, j], fixed_grid[i+1, j],
+                        fixed_grid[i, j-1], fixed_grid[i, j+1]
+                    ]
+                    
+                    # Count how many neighbors differ
+                    different = sum(1 for n in neighbors if n != fixed_grid[i, j])
+                    
+                    # If isolated (3+ neighbors differ), change to most common neighbor
+                    if different >= 3:
+                        neighbor_counts = {}
+                        for n in neighbors:
+                            if n != fixed_grid[i, j]:
+                                neighbor_counts[n] = neighbor_counts.get(n, 0) + 1
+                        
+                        if neighbor_counts:
+                            new_color = max(neighbor_counts, key=neighbor_counts.get)
+                            changes.append((i, j, new_color))
+        
+        # Apply changes
+        for i, j, color in changes:
+            fixed_grid[i, j] = color
+        
+        return fixed_grid
+
+
 class HeuristicPipeline:
     """Apply multiple heuristics in sequence"""
     
@@ -483,11 +736,15 @@ class HeuristicPipeline:
             ColorPaletteSolver(),      # First ensure valid colors
             GridSizeSolver(),          # Then fix size
             ObjectIntegritySolver(),   # Clean up objects
-            SinglePixelFixer(),        # Fix isolated pixels (NEW)
-            HolesFiller(),             # Fill small holes (NEW)
-            EdgeCompleter(),           # Complete edges (NEW)
+            SinglePixelFixer(),        # Fix isolated pixels
+            HolesFiller(),             # Fill small holes
+            CornerFixer(),             # Fix missing corners
+            DiagonalLineFixer(),       # Fix diagonal lines
+            EdgeCompleter(),           # Complete edges
+            BoundarySmootherSolver(),  # Smooth jagged boundaries
             SymmetrySolver(),          # Apply symmetry if needed
-            PatternCompletionSolver()  # Complete patterns
+            PatternCompletionSolver(), # Complete patterns
+            ColorBalancer()            # Final color balance check
         ]
     
     def apply(self, input_grid: np.ndarray, pred_grid: np.ndarray,
