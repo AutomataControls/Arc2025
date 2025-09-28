@@ -52,6 +52,12 @@ class GridSizePredictorV2:
             self._try_gcd_lcm_rule,
             self._try_fibonacci_rule,
             self._try_power_of_two_rule,
+            self._try_third_size_rule,
+            self._try_quarter_size_rule,
+            self._try_count_objects_rule,
+            self._try_max_object_size_rule,
+            self._try_union_bbox_rule,
+            self._try_non_zero_bbox_rule,
             self._try_median_fallback
         ]
         
@@ -954,6 +960,179 @@ class GridSizePredictorV2:
             new_h = nearest_power_of_2(input_grid.shape[0])
             new_w = nearest_power_of_2(input_grid.shape[1])
             return (new_h, new_w)
+        
+        return None
+    
+    def _try_third_size_rule(self, input_grid: np.ndarray,
+                           train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check if output is exactly 1/3 the input size"""
+        consistent = True
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            expected_h = max(1, inp.shape[0] // 3)
+            expected_w = max(1, inp.shape[1] // 3)
+            
+            if out.shape != (expected_h, expected_w):
+                consistent = False
+                break
+        
+        if consistent:
+            return (max(1, input_grid.shape[0] // 3), max(1, input_grid.shape[1] // 3))
+        
+        return None
+    
+    def _try_quarter_size_rule(self, input_grid: np.ndarray,
+                             train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Check if output is exactly 1/4 the input size"""
+        consistent = True
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            expected_h = max(1, inp.shape[0] // 4)
+            expected_w = max(1, inp.shape[1] // 4)
+            
+            if out.shape != (expected_h, expected_w):
+                consistent = False
+                break
+        
+        if consistent:
+            return (max(1, input_grid.shape[0] // 4), max(1, input_grid.shape[1] // 4))
+        
+        return None
+    
+    def _try_count_objects_rule(self, input_grid: np.ndarray,
+                              train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size based on number of distinct objects"""
+        rules = []
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # Count distinct objects (connected components)
+            objects = self._extract_objects(inp)
+            num_objects = len(objects)
+            
+            if num_objects > 0:
+                if out.shape == (num_objects, num_objects):
+                    rules.append('square_object_count')
+                elif out.shape[0] == num_objects:
+                    rules.append('height_object_count')
+                elif out.shape[1] == num_objects:
+                    rules.append('width_object_count')
+        
+        if rules:
+            rule_counts = Counter(rules)
+            most_common = rule_counts.most_common(1)[0][0]
+            
+            input_objects = self._extract_objects(input_grid)
+            count = len(input_objects)
+            
+            if count > 0 and count <= 30:
+                if most_common == 'square_object_count':
+                    return (count, count)
+                elif most_common == 'height_object_count':
+                    # Try to preserve width or use median
+                    widths = [np.array(ex['output']).shape[1] for ex in train_examples]
+                    return (count, int(np.median(widths)))
+                elif most_common == 'width_object_count':
+                    heights = [np.array(ex['output']).shape[0] for ex in train_examples]
+                    return (int(np.median(heights)), count)
+        
+        return None
+    
+    def _try_max_object_size_rule(self, input_grid: np.ndarray,
+                                 train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size equals the largest object dimensions"""
+        consistent = True
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            objects = self._extract_objects(inp)
+            if objects:
+                # Find largest object
+                largest = max(objects, key=lambda o: len(o['pixels']))
+                bbox = largest['bbox']
+                obj_h = bbox[2] - bbox[0]
+                obj_w = bbox[3] - bbox[1]
+                
+                if out.shape != (obj_h, obj_w):
+                    consistent = False
+                    break
+            else:
+                consistent = False
+                break
+        
+        if consistent:
+            input_objects = self._extract_objects(input_grid)
+            if input_objects:
+                largest = max(input_objects, key=lambda o: len(o['pixels']))
+                bbox = largest['bbox']
+                return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+        
+        return None
+    
+    def _try_union_bbox_rule(self, input_grid: np.ndarray,
+                           train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output size is the bounding box of all non-zero pixels"""
+        consistent = True
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # Get bounding box of all objects
+            objects = self._extract_objects(inp)
+            if objects:
+                bbox = self._get_combined_bbox(objects)
+                if bbox:
+                    expected_shape = (bbox[2] - bbox[0], bbox[3] - bbox[1])
+                    if out.shape != expected_shape:
+                        consistent = False
+                        break
+        
+        if consistent:
+            input_objects = self._extract_objects(input_grid)
+            if input_objects:
+                bbox = self._get_combined_bbox(input_objects)
+                if bbox:
+                    return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+        
+        return None
+    
+    def _try_non_zero_bbox_rule(self, input_grid: np.ndarray,
+                              train_examples: List[Dict]) -> Optional[Tuple[int, int]]:
+        """Output is the tight bounding box around all non-zero pixels"""
+        consistent = True
+        
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # Find non-zero bounds
+            non_zero = np.argwhere(inp != 0)
+            if len(non_zero) > 0:
+                min_r, min_c = non_zero.min(axis=0)
+                max_r, max_c = non_zero.max(axis=0)
+                expected_shape = (max_r - min_r + 1, max_c - min_c + 1)
+                
+                if out.shape != expected_shape:
+                    consistent = False
+                    break
+        
+        if consistent:
+            non_zero = np.argwhere(input_grid != 0)
+            if len(non_zero) > 0:
+                min_r, min_c = non_zero.min(axis=0)
+                max_r, max_c = non_zero.max(axis=0)
+                return (max_r - min_r + 1, max_c - min_c + 1)
         
         return None
     
