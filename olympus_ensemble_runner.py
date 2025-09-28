@@ -169,9 +169,24 @@ class OLYMPUSRunner:
             pred_no_heur = result_no_heur['prediction']
             pred_with_heur = result_with_heur['prediction']
             
-            # Check results
-            exact_no_heur = np.array_equal(pred_no_heur, test_output)
-            exact_with_heur = np.array_equal(pred_with_heur, test_output)
+            # Handle None predictions
+            if pred_no_heur is None or pred_with_heur is None:
+                print("  ⚠️  Failed to get prediction")
+                continue
+            
+            # Check if shapes match for comparison
+            if pred_with_heur.shape != test_output.shape:
+                print(f"  ⚠️  Shape mismatch: predicted {pred_with_heur.shape} vs actual {test_output.shape}")
+                pixel_acc = 0.0
+                exact_no_heur = False
+                exact_with_heur = False
+            else:
+                # Check results
+                exact_no_heur = np.array_equal(pred_no_heur, test_output)
+                exact_with_heur = np.array_equal(pred_with_heur, test_output)
+                
+                # Pixel accuracy
+                pixel_acc = (pred_with_heur == test_output).mean() * 100
             
             if exact_with_heur:
                 results['exact_matches'] += 1
@@ -180,9 +195,6 @@ class OLYMPUSRunner:
             if not exact_no_heur and exact_with_heur:
                 results['heuristics_helped'] += 1
                 print("  ✨ Heuristics fixed it!")
-            
-            # Pixel accuracy
-            pixel_acc = (pred_with_heur == test_output).mean() * 100
             results['pixel_accuracy'].append(pixel_acc)
             results['confidence_scores'].append(result_with_heur['confidence'])
             
