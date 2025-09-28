@@ -216,11 +216,11 @@ class EnhancedMinervaNet(nn.Module):
             nn.ConvTranspose2d(hidden_dim * 2, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            # nn.Dropout2d(0.3),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.3),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(128, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            # nn.Dropout2d(0.2),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.2),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(64, 10, 1),  # 10 colors
             # NO SOFTMAX - CrossEntropyLoss expects raw logits
         )
@@ -377,11 +377,11 @@ class EnhancedAtlasNet(nn.Module):
             nn.ConvTranspose2d(128, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            # nn.Dropout2d(0.3),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.3),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(64, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            # nn.Dropout2d(0.2),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.2),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(32, 10, 1)
         )
         
@@ -509,7 +509,7 @@ class EnhancedIrisNet(nn.Module):
             nn.ConvTranspose2d(64, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            # nn.Dropout2d(0.3),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.3),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(32, 10, 1)
         )
         
@@ -622,11 +622,11 @@ class EnhancedChronosNet(nn.Module):
             nn.ConvTranspose2d(128 + 128, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            # nn.Dropout2d(0.3),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.3),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(128, 64, 3, padding=1),
             nn.BatchNorm2d(64), 
             nn.ReLU(),
-            # nn.Dropout2d(0.2),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.2),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(64, 10, 1)
         )
         
@@ -779,15 +779,15 @@ class EnhancedPrometheusNet(nn.Module):
             nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            # nn.Dropout2d(0.3),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.3),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            # nn.Dropout2d(0.3),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.3),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(64, 32, 3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            # nn.Dropout2d(0.2),  # REMOVED - dropout kills exact match
+            nn.Dropout2d(0.2),  # Keep for compatibility with trained models
             nn.ConvTranspose2d(32, 10, 1)
         )
         
