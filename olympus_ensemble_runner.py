@@ -101,6 +101,64 @@ class OLYMPUSRunner:
         
         return min(base_confidence, 100.0)
     
+    def _analyze_prediction(self, prediction: np.ndarray, input_grid: np.ndarray, 
+                          train_examples: List[Dict]) -> Dict:
+        """Analyze a prediction for potential issues"""
+        analysis = {
+            'shape_mismatch_risk': False,
+            'color_pattern_issue': False,
+            'confidence': 0.5
+        }
+        
+        # Check shape patterns
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            # If training examples show consistent shape transformation
+            if inp.shape != out.shape:
+                # Check if prediction follows the pattern
+                expected_h_ratio = out.shape[0] / inp.shape[0]
+                expected_w_ratio = out.shape[1] / inp.shape[1]
+                
+                actual_h_ratio = prediction.shape[0] / input_grid.shape[0]
+                actual_w_ratio = prediction.shape[1] / input_grid.shape[1]
+                
+                if abs(expected_h_ratio - actual_h_ratio) > 0.3 or abs(expected_w_ratio - actual_w_ratio) > 0.3:
+                    analysis['shape_mismatch_risk'] = True
+        
+        # Check color patterns
+        pred_colors = set(np.unique(prediction))
+        input_colors = set(np.unique(input_grid))
+        
+        # Check if prediction has way more or fewer colors than expected
+        for ex in train_examples:
+            inp = np.array(ex['input'])
+            out = np.array(ex['output'])
+            
+            inp_colors = set(np.unique(inp))
+            out_colors = set(np.unique(out))
+            
+            # If outputs typically preserve color count
+            if len(inp_colors) == len(out_colors):
+                if abs(len(pred_colors) - len(input_colors)) > 2:
+                    analysis['color_pattern_issue'] = True
+        
+        # Calculate confidence based on shape match and color count
+        if prediction.shape == input_grid.shape:
+            analysis['confidence'] += 0.2
+        
+        if len(pred_colors) <= len(input_colors) + 1:
+            analysis['confidence'] += 0.2
+        
+        # Check if prediction is mostly background (might be failure)
+        if np.count_nonzero(prediction == 0) > prediction.size * 0.9:
+            analysis['confidence'] -= 0.3
+        
+        analysis['confidence'] = max(0, min(1, analysis['confidence']))
+        
+        return analysis
+    
     def predict_task(self, task: Dict) -> List[np.ndarray]:
         """
         Predict all test outputs for a complete task
@@ -118,7 +176,8 @@ class OLYMPUSRunner:
             result_with_heur = self.predict(test_input, train_examples, apply_heuristics=True)
             attempt_1 = result_with_heur['prediction']
             
-            # Second attempt: Raw highest-weighted model without heuristics
+            # Second attempt: Smart strategy based on first attempt analysis
+            
             # Get all model predictions
             model_predictions = self.ensemble.predict_all_models_with_shape(
                 test_input, train_examples
@@ -127,16 +186,52 @@ class OLYMPUSRunner:
             # Use task router to get weights
             weights = self.router.get_model_weights(test_input, train_examples)
             
-            # Find highest weighted model
-            best_model = max(weights.items(), key=lambda x: x[1])[0]
-            attempt_2 = model_predictions.get(best_model, attempt_1)
+            # Analyze first attempt for potential issues
+            attempt_1_analysis = self._analyze_prediction(attempt_1, test_input, train_examples)
             
-            # If both attempts are the same, try the second-best model
-            if np.array_equal(attempt_1, attempt_2) and len(weights) > 1:
+            # Strategy 1: If first attempt has shape mismatch risk, try without heuristics
+            if attempt_1_analysis.get('shape_mismatch_risk', False):
+                result_no_heur = self.predict(test_input, train_examples, apply_heuristics=False, verbose=False)
+                attempt_2 = result_no_heur['prediction']
+            
+            # Strategy 2: If color patterns seem wrong, try different model
+            elif attempt_1_analysis.get('color_pattern_issue', False):
+                # Find model with different color handling approach
+                color_models = ['IRIS', 'CHRONOS']  # Models better at color patterns
+                for model in color_models:
+                    if model in model_predictions and not np.array_equal(model_predictions[model], attempt_1):
+                        attempt_2 = model_predictions[model]
+                        break
+                else:
+                    # Fall back to highest weighted model
+                    best_model = max(weights.items(), key=lambda x: x[1])[0]
+                    attempt_2 = model_predictions.get(best_model, attempt_1)
+            
+            # Strategy 3: If high confidence in first attempt, try a complementary approach
+            elif attempt_1_analysis.get('confidence', 0) > 0.8:
+                # Try the model that's most different from consensus
                 sorted_models = sorted(weights.items(), key=lambda x: x[1], reverse=True)
-                if len(sorted_models) > 1:
-                    second_best_model = sorted_models[1][0]
-                    attempt_2 = model_predictions.get(second_best_model, attempt_1)
+                for model, _ in sorted_models:
+                    pred = model_predictions.get(model)
+                    if pred is not None and not np.array_equal(pred, attempt_1):
+                        attempt_2 = pred
+                        break
+                else:
+                    attempt_2 = attempt_1
+            
+            # Strategy 4: Low confidence - try best individual model
+            else:
+                best_model = max(weights.items(), key=lambda x: x[1])[0]
+                attempt_2 = model_predictions.get(best_model, attempt_1)
+            
+            # Final check: If both attempts are still the same, try median prediction
+            if np.array_equal(attempt_1, attempt_2) and len(model_predictions) > 2:
+                # Create a simple median-based prediction
+                all_preds = list(model_predictions.values())
+                if all_preds:
+                    # Use mode for each pixel position
+                    from scipy import stats
+                    attempt_2 = stats.mode(np.stack(all_preds), axis=0, keepdims=False)[0]
             
             predictions.append([attempt_1, attempt_2])
             print(f"  ✅ Two attempts generated (heuristic + raw best model)")
